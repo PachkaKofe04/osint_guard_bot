@@ -8,11 +8,15 @@ import requests
 from bin_scanner.models import BinInfo, BinScanResult
 from bin_scanner.risk_engine import calculate_bin_risk
 from bin_scanner.trusted_bins import is_trusted_bank
+from utils.cache import TTLCache
 from utils.retry import retry_sync
 
 log = logging.getLogger(__name__)
 
 BINLIST_URL = "https://lookup.binlist.net/"
+
+# Кэш для результатов сканирования BIN
+_bin_cache: TTLCache[BinScanResult] = TTLCache(ttl_seconds=600, max_size=1024)
 
 
 def _normalize_bin(raw: str) -> str:
@@ -100,6 +104,11 @@ def scan_bin(raw_bin: str) -> BinScanResult:
     if len(digits) < 6 or len(digits) > 8:
         raise ValueError("BIN должен содержать 6–8 цифр")
 
+    # Проверяем кэш
+    cached = _bin_cache.get(digits)
+    if cached is not None:
+        return cached
+
     info = _fetch_bin_info(digits)
 
     risk_level, flags, score = calculate_bin_risk(info)
@@ -112,6 +121,9 @@ def scan_bin(raw_bin: str) -> BinScanResult:
         score=score,
         scanned_at=datetime.utcnow(),
     )
+
+    # Сохраняем в кэш
+    _bin_cache.set(digits, result)
 
     log.info(
         f"[BIN] {raw_bin} → bank={info.bank_name if info else 'N/A'}, "

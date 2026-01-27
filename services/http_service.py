@@ -1,24 +1,32 @@
 # services/http_service.py
 import asyncio
+import re
 from typing import Optional
 
 import requests
 
 from domain_scanner.models import HttpInfo
+from utils.retry import retry_sync
 
 
+@retry_sync(max_attempts=2, backoff=1.0, exceptions=(requests.RequestException,))
 def _head_request(url: str, timeout: float = 5.0) -> Optional[requests.Response]:
     try:
         resp = requests.head(url, allow_redirects=True, timeout=timeout)
         return resp
+    except requests.RequestException:
+        raise
     except Exception:
         return None
 
 
+@retry_sync(max_attempts=2, backoff=1.0, exceptions=(requests.RequestException,))
 def _get_request(url: str, timeout: float = 5.0) -> Optional[requests.Response]:
     try:
         resp = requests.get(url, allow_redirects=True, timeout=timeout)
         return resp
+    except requests.RequestException:
+        raise
     except Exception:
         return None
 
@@ -62,13 +70,17 @@ def fetch_http_sync(domain: str) -> Optional[HttpInfo]:
         robots_raw = text
 
         lowered = text.lower()
-        if "disallow: /" in lowered:
+
+        # Проверяем именно "Disallow: /" как отдельную директиву (не /admin, /private и т.д.)
+        # Паттерн: disallow: / в конце строки или с пробелами/комментариями после
+        disallow_all_pattern = re.compile(r'disallow:\s*/\s*(?:#.*)?$', re.MULTILINE | re.IGNORECASE)
+        if disallow_all_pattern.search(text):
             robots_disallow_all = True
 
         if "sitemap:" in lowered:
             robots_has_sitemap = True
 
-        # минимальные Allow
+        # минимальные Allow — подозрительный паттерн фишинговых сайтов
         if "allow: /index.html" in lowered or "allow: /index_2.html" in lowered:
             robots_has_minimal_allow = True
 
