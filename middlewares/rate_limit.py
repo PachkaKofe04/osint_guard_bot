@@ -8,17 +8,49 @@ from aiogram.types import Update, Message
 
 log = logging.getLogger(__name__)
 
+# Максимальное количество записей в кэше rate limit
+MAX_RATE_LIMIT_ENTRIES = 10000
+# Время жизни записи (в секундах) — после этого запись считается устаревшей
+ENTRY_TTL_SECONDS = 3600  # 1 час
+
 
 class RateLimitMiddleware(BaseMiddleware):
     """
     Простой rate limit:
     - для /scan, /phone, /bin не чаще, чем раз N секунд на пользователя
+    - автоматическая очистка устаревших записей для предотвращения утечки памяти
     """
 
     def __init__(self, min_interval_seconds: int = 10) -> None:
         super().__init__()
         self.min_interval = min_interval_seconds
         self._last_call: Dict[int, float] = {}
+        self._last_cleanup: float = time.time()
+
+    def _cleanup_stale_entries(self) -> None:
+        """Удаляет устаревшие записи из словаря."""
+        now = time.time()
+        # Очистка не чаще раза в минуту
+        if now - self._last_cleanup < 60:
+            return
+
+        self._last_cleanup = now
+        cutoff = now - ENTRY_TTL_SECONDS
+        stale_keys = [uid for uid, ts in self._last_call.items() if ts < cutoff]
+
+        for uid in stale_keys:
+            del self._last_call[uid]
+
+        if stale_keys:
+            log.debug(f"[RateLimit] Cleaned up {len(stale_keys)} stale entries")
+
+        # Аварийная очистка при переполнении
+        if len(self._last_call) > MAX_RATE_LIMIT_ENTRIES:
+            sorted_items = sorted(self._last_call.items(), key=lambda x: x[1])
+            to_remove = len(self._last_call) - MAX_RATE_LIMIT_ENTRIES // 2
+            for uid, _ in sorted_items[:to_remove]:
+                del self._last_call[uid]
+            log.warning(f"[RateLimit] Emergency cleanup: removed {to_remove} oldest entries")
 
     async def __call__(
         self,
@@ -26,6 +58,9 @@ class RateLimitMiddleware(BaseMiddleware):
         event: Update,
         data: Dict[str, Any],
     ) -> Any:
+        # Периодическая очистка устаревших записей
+        self._cleanup_stale_entries()
+
         message: Message | None = None
 
         if event.message:

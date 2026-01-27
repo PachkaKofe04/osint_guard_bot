@@ -2,6 +2,9 @@
 import asyncio
 import logging
 import os
+import signal
+import sys
+from typing import Optional
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -18,12 +21,18 @@ from handlers.bin_scan import router as bin_router
 from middlewares.logging import LoggingMiddleware
 from middlewares.rate_limit import RateLimitMiddleware
 
+log = logging.getLogger(__name__)
 
-async def main() -> None:
-    # Создаём папку для логов
+# Глобальные переменные для graceful shutdown
+_bot: Optional[Bot] = None
+_dp: Optional[Dispatcher] = None
+_shutdown_event: Optional[asyncio.Event] = None
+
+
+def _setup_logging() -> None:
+    """Настройка логирования."""
     os.makedirs("logs", exist_ok=True)
 
-    # Логирование и в консоль, и в файл
     log_format = "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 
     logging.basicConfig(
@@ -35,27 +44,75 @@ async def main() -> None:
         ],
     )
 
-    bot = Bot(
+
+def _handle_signal(signum: int, frame) -> None:
+    """Обработчик сигналов для graceful shutdown."""
+    sig_name = signal.Signals(signum).name
+    log.info(f"Received signal {sig_name}, initiating graceful shutdown...")
+
+    if _shutdown_event:
+        _shutdown_event.set()
+
+
+async def _shutdown(bot: Bot, dp: Dispatcher) -> None:
+    """Корректное завершение работы бота."""
+    log.info("Shutting down bot...")
+
+    # Останавливаем polling
+    dp.shutdown()
+
+    # Закрываем сессию бота
+    await bot.session.close()
+
+    log.info("Bot shutdown complete")
+
+
+async def main() -> None:
+    global _bot, _dp, _shutdown_event
+
+    _setup_logging()
+
+    _bot = Bot(
         token=settings.BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
-    dp = Dispatcher()
+    _dp = Dispatcher()
+    _shutdown_event = asyncio.Event()
+
+    # Регистрируем обработчики сигналов
+    if sys.platform != "win32":
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, lambda s=sig: _handle_signal(s, None))
+    else:
+        # Windows не поддерживает add_signal_handler
+        signal.signal(signal.SIGINT, _handle_signal)
+        signal.signal(signal.SIGTERM, _handle_signal)
 
     # Мидлвары
-    dp.update.middleware(LoggingMiddleware())
-    dp.update.middleware(RateLimitMiddleware(min_interval_seconds=10))
+    _dp.update.middleware(LoggingMiddleware())
+    _dp.update.middleware(RateLimitMiddleware(min_interval_seconds=10))
 
     # Роутеры
-    dp.include_router(common_router)
-    dp.include_router(scan_router)
-    dp.include_router(phone_router)
-    dp.include_router(bin_router)
+    _dp.include_router(common_router)
+    _dp.include_router(scan_router)
+    _dp.include_router(phone_router)
+    _dp.include_router(bin_router)
 
-    await bot.delete_webhook(drop_pending_updates=True)
+    await _bot.delete_webhook(drop_pending_updates=True)
 
-    logging.getLogger(__name__).info("Bot starting polling...")
-    await dp.start_polling(bot)
+    log.info("Bot starting polling...")
+
+    try:
+        await _dp.start_polling(_bot)
+    except asyncio.CancelledError:
+        log.info("Polling cancelled")
+    finally:
+        await _shutdown(_bot, _dp)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        log.info("Bot stopped by keyboard interrupt")

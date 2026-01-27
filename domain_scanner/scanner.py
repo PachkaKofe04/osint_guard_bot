@@ -1,4 +1,5 @@
 # domain_scanner/scanner.py
+import asyncio
 import logging
 from datetime import datetime
 from typing import Optional, List
@@ -12,7 +13,7 @@ from domain_scanner.models import (
     IpProfile,
 )
 from domain_scanner.risk_engine import calculate_risk
-from domain_scanner.ip_service import fetch_ip_profile
+from domain_scanner.ip_service import fetch_ip_profile_async
 from utils.cache import TTLCache
 from utils.domain_normalizer import normalize_domain
 from services.whois_service import fetch_whois
@@ -35,31 +36,53 @@ async def scan_domain(raw_domain: str) -> DomainScanResult:
     if cached is not None:
         return cached.copy(update={"from_cache": True})
 
+    # Параллельный запуск всех независимых сервисов
+    results = await asyncio.gather(
+        fetch_whois(normalized),
+        fetch_dns(normalized),
+        fetch_ssl(normalized),
+        fetch_http(normalized),
+        return_exceptions=True,
+    )
+
     whois: Optional[WhoisInfo] = None
     dns: Optional[DnsInfo] = None
     ssl: Optional[SslInfo] = None
     http: Optional[HttpInfo] = None
     ip_profiles: List[IpProfile] = []
 
-    try:
-        whois = await fetch_whois(normalized)
-    except Exception as e:
-        log.warning(f"[scan_domain] WHOIS error for {normalized}: {e}")
+    # Обработка результатов
+    if isinstance(results[0], Exception):
+        log.warning(f"[scan_domain] WHOIS error for {normalized}: {results[0]}")
+    else:
+        whois = results[0]
 
-    try:
-        dns = await fetch_dns(normalized)
-    except Exception as e:
-        log.warning(f"[scan_domain] DNS error for {normalized}: {e}")
+    if isinstance(results[1], Exception):
+        log.warning(f"[scan_domain] DNS error for {normalized}: {results[1]}")
+    else:
+        dns = results[1]
 
-    # IP enrichment (если есть A-записи)
+    if isinstance(results[2], Exception):
+        log.warning(f"[scan_domain] SSL error for {normalized}: {results[2]}")
+    else:
+        ssl = results[2]
+
+    if isinstance(results[3], Exception):
+        log.warning(f"[scan_domain] HTTP error for {normalized}: {results[3]}")
+    else:
+        http = results[3]
+
+    # IP enrichment (параллельно, если есть A-записи)
     if dns and dns.a_records:
-        unique_ips = []
-        for ip in dns.a_records:
-            if ip not in unique_ips:
-                unique_ips.append(ip)
-
-        for ip in unique_ips[:5]:  # ограничим до 5 IP
-            data = fetch_ip_profile(ip)
+        unique_ips = list(dict.fromkeys(dns.a_records))[:5]  # до 5 уникальных IP
+        ip_results = await asyncio.gather(
+            *[fetch_ip_profile_async(ip) for ip in unique_ips],
+            return_exceptions=True,
+        )
+        for ip, data in zip(unique_ips, ip_results):
+            if isinstance(data, Exception):
+                log.warning(f"[scan_domain] IP profile error for {ip}: {data}")
+                continue
             if not data:
                 continue
             ip_profiles.append(
@@ -76,16 +99,6 @@ async def scan_domain(raw_domain: str) -> DomainScanResult:
                     hosting=data.get("hosting"),
                 )
             )
-
-    try:
-        ssl = await fetch_ssl(normalized)
-    except Exception as e:
-        log.warning(f"[scan_domain] SSL error for {normalized}: {e}")
-
-    try:
-        http = await fetch_http(normalized)
-    except Exception as e:
-        log.warning(f"[scan_domain] HTTP error for {normalized}: {e}")
 
     risk_level, flags, score = calculate_risk(whois, dns, ssl, http, ip_profiles)
 
