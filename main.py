@@ -109,6 +109,8 @@ async def main() -> None:
     _dp.include_router(ip_router)
     _dp.include_router(username_router)
     _dp.include_router(wallet_router)
+    # Auto-detect последним — catch-all для сообщений без команд
+    _dp.include_router(auto_detect_router)
 
     await _bot.delete_webhook(drop_pending_updates=True)
 

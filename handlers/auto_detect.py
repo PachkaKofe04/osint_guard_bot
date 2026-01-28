@@ -18,7 +18,7 @@ from wallet_scanner.scanner import scan_wallet
 from wallet_scanner.validators import detect_currency
 from wallet_scanner.formatter import format_wallet_result
 from domain_scanner.scanner import scan_domain
-from domain_scanner.formatter import format_result as format_domain_result
+from domain_scanner.formatter import format_summary as format_domain_result
 
 log = logging.getLogger(__name__)
 
@@ -45,10 +45,9 @@ def detect_input_type(text: str) -> Tuple[str, str]:
     """
     text = text.strip()
 
-    # URL (с протоколом или путём)
-    if text.startswith(("http://", "https://")) or "/" in text:
-        if URL_PATTERN.match(text.split("/")[0] if "/" in text else text.split("?")[0]):
-            return "url", text
+    # URL (с протоколом)
+    if text.startswith(("http://", "https://")):
+        return "url", text
 
     # Email
     if "@" in text and "." in text:
