@@ -32,6 +32,7 @@ class RiskWeight:
     HIGH_RISK_COUNTRY = 2
     WHOIS_MISSING = 1
     DNS_MISSING = 1
+    BRAND_IMPERSONATION = 4      # Попытка имитации бренда (фишинг)
 
     # Phone risks
     PHONE_LENGTH_INVALID = 4

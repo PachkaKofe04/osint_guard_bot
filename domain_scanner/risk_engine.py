@@ -25,33 +25,98 @@ TRUSTED_ASN_KEYWORDS = {
     "fastly",
 }
 
-TRUSTED_BRAND_KEYWORDS = {
-    "facebook",
-    "instagram",
-    "whatsapp",
-    "telegram",
-    "vk",
-    "vkontakte",
-    "twitter",
-    "x.com",
-    "tiktok",
-    "youtube",
-    "linkedin",
-    "reddit",
-    "discord",
-    "google",
-    "gmail",
-    "amazon",
-    "apple",
-    "icloud",
-    "netflix",
-    "spotify",
-    "yandex",
-    "bing",
+# Официальные домены известных брендов (точное совпадение = доверие)
+OFFICIAL_BRAND_DOMAINS = {
+    # Социальные сети
+    "facebook.com", "fb.com",
+    "instagram.com",
+    "whatsapp.com",
+    "telegram.org", "t.me",
+    "vk.com", "vkontakte.ru",
+    "twitter.com", "x.com",
+    "tiktok.com",
+    "youtube.com", "youtu.be",
+    "linkedin.com",
+    "reddit.com",
+    "discord.com", "discord.gg",
+    # Технологические компании
+    "google.com", "google.ru", "gmail.com",
+    "amazon.com", "aws.amazon.com",
+    "apple.com", "icloud.com",
+    "microsoft.com", "outlook.com", "live.com",
+    "netflix.com",
+    "spotify.com",
+    "yandex.ru", "yandex.com", "ya.ru",
+    "bing.com",
+    # Банки и платежные системы
+    "paypal.com",
+    "visa.com",
+    "mastercard.com",
+    "sberbank.ru", "sber.ru",
+    "tinkoff.ru",
+    "vtb.ru",
+    "alfabank.ru",
+}
+
+# Ключевые слова брендов для детекции фишинга
+# Если домен СОДЕРЖИТ эти слова, но НЕ является официальным — это подозрительно
+BRAND_KEYWORDS_FOR_PHISHING_DETECTION = {
+    "facebook", "instagram", "whatsapp", "telegram",
+    "vkontakte", "twitter", "tiktok", "youtube",
+    "linkedin", "reddit", "discord",
+    "google", "gmail", "amazon", "apple", "icloud",
+    "microsoft", "outlook", "netflix", "spotify",
+    "yandex", "paypal", "visa", "mastercard",
+    "sberbank", "sber", "tinkoff", "vtb", "alfabank",
+    "login", "secure", "verify", "account", "update",
+    "banking", "wallet", "crypto",
 }
 
 
-# Удалена старая функция _add_flag, используем новую из utils.risk_scoring
+def _extract_base_domain(domain: str) -> str:
+    """
+    Извлекает базовый домен (domain.tld) из полного имени.
+    Например: www.sub.example.com -> example.com
+    """
+    domain = domain.lower().strip()
+    if domain.startswith("*."):
+        domain = domain[2:]
+    if domain.startswith("www."):
+        domain = domain[4:]
+
+    parts = domain.split(".")
+    if len(parts) >= 2:
+        # Для большинства TLD берём последние 2 части
+        # TODO: добавить поддержку .co.uk, .com.ru и т.д.
+        return ".".join(parts[-2:])
+    return domain
+
+
+def _is_official_domain(domain: str) -> bool:
+    """Проверяет, является ли домен официальным доменом бренда."""
+    base = _extract_base_domain(domain)
+    return base in OFFICIAL_BRAND_DOMAINS
+
+
+def _detect_brand_impersonation(domain: str) -> Optional[str]:
+    """
+    Проверяет, пытается ли домен имитировать известный бренд.
+    Возвращает название бренда, если обнаружена имитация.
+    """
+    if _is_official_domain(domain):
+        return None  # Это официальный домен, не имитация
+
+    domain_lower = domain.lower()
+    base = _extract_base_domain(domain_lower)
+
+    # Удаляем TLD для проверки
+    name_part = base.split(".")[0] if "." in base else base
+
+    for brand in BRAND_KEYWORDS_FOR_PHISHING_DETECTION:
+        if brand in name_part:
+            return brand
+
+    return None
 
 
 def calculate_risk(
@@ -296,22 +361,40 @@ def calculate_risk(
                 )
                 break
 
-    # Trusted brand in domain name
+    # Проверка на официальные домены брендов vs фишинг
     domain_candidates = []
     if ssl and ssl.san_domains:
         domain_candidates.extend(ssl.san_domains)
 
+    is_official = False
+    impersonated_brand = None
+
     for d in domain_candidates:
-        d_low = d.lower()
-        if any(b in d_low for b in TRUSTED_BRAND_KEYWORDS):
-            add_risk_flag(
-                flags,
-                "TRUSTED_BRAND",
-                RiskLevel.LOW,
-                "Домен совпадает с известным брендом/соцсетью",
-                RiskWeight.TRUSTED_BRAND,
-            )
+        if _is_official_domain(d):
+            is_official = True
             break
+        brand = _detect_brand_impersonation(d)
+        if brand:
+            impersonated_brand = brand
+
+    if is_official:
+        # Официальный домен бренда — высокое доверие
+        add_risk_flag(
+            flags,
+            "OFFICIAL_BRAND_DOMAIN",
+            RiskLevel.LOW,
+            "Официальный домен известного бренда",
+            RiskWeight.TRUSTED_BRAND,
+        )
+    elif impersonated_brand:
+        # Попытка имитации бренда — ВЫСОКИЙ РИСК ФИШИНГА!
+        add_risk_flag(
+            flags,
+            "BRAND_IMPERSONATION",
+            RiskLevel.HIGH,
+            f"Подозрение на фишинг: домен имитирует '{impersonated_brand}'",
+            RiskWeight.BRAND_IMPERSONATION,
+        )
 
     # --------------------
     # FINAL SCORE
