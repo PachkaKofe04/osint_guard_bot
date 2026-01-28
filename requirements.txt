@@ -6,3 +6,9 @@ requests
 whois
 pydantic-settings
 beautifulsoup4
+python-dotenv
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pytest-cov>=4.0.0

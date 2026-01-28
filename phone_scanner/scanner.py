@@ -4,15 +4,19 @@
 Использует Veriphone для получения точной информации о номере.
 """
 import logging
-import os
 from datetime import datetime
 from typing import Optional
 
+from config import settings
 from phone_scanner.models import PhoneInfo, PhoneScanResult
 from phone_scanner.risk_engine import calculate_phone_risk
 from services.veriphone_service import verify_phone_veriphone
+from utils.cache import TTLCache
 
 log = logging.getLogger(__name__)
+
+# Кэш для результатов сканирования телефонов
+_phone_cache: TTLCache[PhoneScanResult] = TTLCache(ttl_seconds=600, max_size=1024)
 
 
 def normalize_phone(raw: str) -> str:
@@ -55,12 +59,15 @@ async def scan_phone(raw_phone: str) -> PhoneScanResult:
 
     Returns:
         PhoneScanResult с полной информацией и оценкой риска
-
-    Environment:
-        VERIPHONE_API_KEY - API ключ для Veriphone
     """
     normalized = normalize_phone(raw_phone)
-    api_key = os.getenv("VERIPHONE_API_KEY")
+
+    # Проверяем кэш
+    cached = _phone_cache.get(normalized)
+    if cached is not None:
+        return cached
+
+    api_key = settings.VERIPHONE_API_KEY
 
     # Если API ключ не установлен
     if not api_key:
@@ -151,5 +158,8 @@ async def scan_phone(raw_phone: str) -> PhoneScanResult:
         confidence=confidence,
         scanned_at=datetime.utcnow(),
     )
+
+    # Сохраняем в кэш
+    _phone_cache.set(normalized, result)
 
     return result

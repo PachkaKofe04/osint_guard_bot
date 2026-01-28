@@ -13,12 +13,53 @@ log = logging.getLogger(__name__)
 
 
 PRIVACY_MARKERS = [
+    # Общие маркеры
     "redacted for privacy",
-    "whoisguard",
-    "privacy service",
+    "redacted for gdpr",
     "data protected",
     "gdpr masked",
+    "gdpr redacted",
+    "not disclosed",
+    "withheld for privacy",
+    "registration private",
+    "identity protected",
+    "private registration",
+    "privacy protection",
+    "domain privacy",
     "contact privacy",
+    "statutory masking",
+    "personal data redacted",
+
+    # Популярные провайдеры приватности
+    "whoisguard",
+    "whois guard",
+    "whois privacy",
+    "whois protection",
+    "whois proxy",
+    "domains by proxy",
+    "domainsbyproxy",
+    "privacy protect",
+    "privacyprotect",
+    "perfectprivacy",
+    "perfect privacy",
+    "namecheap privacy",
+    "withholdingmydata",
+    "contactprivacy",
+    "whoisprivacycorp",
+    "privacydotlink",
+    "super privacy",
+    "identity shield",
+    "id shield",
+    "anonymize",
+    "private whois",
+
+    # Регистраторы с приватностью
+    "cloudflare, inc",
+    "privacy@",
+    "@privacy",
+    "proxy@",
+    "@proxy",
+    "abuse@",
 ]
 
 
