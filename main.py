@@ -24,6 +24,7 @@ from handlers.ip_scan import router as ip_router
 from handlers.username_scan import router as username_router
 from handlers.wallet_scan import router as wallet_router
 from handlers.leak_scan import router as leak_router
+from handlers.exif_scan import router as exif_router
 from handlers.auto_detect import router as auto_detect_router
 from middlewares.logging import LoggingMiddleware
 from middlewares.rate_limit import RateLimitMiddleware
@@ -111,6 +112,7 @@ async def main() -> None:
     _dp.include_router(username_router)
     _dp.include_router(wallet_router)
     _dp.include_router(leak_router)
+    _dp.include_router(exif_router)
     # Auto-detect последним — catch-all для сообщений без команд
     _dp.include_router(auto_detect_router)
 
