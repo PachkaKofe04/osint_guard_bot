@@ -7,6 +7,8 @@ whois
 pydantic-settings
 beautifulsoup4
 python-dotenv
+pillow
+pyzbar
 
 # Testing
 pytest>=8.0.0
