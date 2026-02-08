@@ -76,13 +76,24 @@ class RateLimitMiddleware(BaseMiddleware):
         text = message.text or ""
         lower = text.lower()
 
+        # Команды, требующие rate limiting
         is_heavy_command = (
             lower.startswith("/scan")
             or lower.startswith("/phone")
             or lower.startswith("/bin")
+            or lower.startswith("/url")
+            or lower.startswith("/email")
+            or lower.startswith("/ip")
+            or lower.startswith("/user")
+            or lower.startswith("/wallet")
+            or lower.startswith("/leak")
+            or lower.startswith("/qr")
         )
 
-        if not is_heavy_command:
+        # Фото и документы тоже требуют rate limiting (EXIF/QR сканы)
+        is_media = message.photo is not None or message.document is not None
+
+        if not is_heavy_command and not is_media:
             return await handler(event, data)
 
         now = time.time()
