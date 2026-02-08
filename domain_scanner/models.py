@@ -44,6 +44,13 @@ class HttpInfo(BaseModel):
     robots_raw: Optional[str] = None
 
 
+class OtxInfo(BaseModel):
+    """Данные репутации из AlienVault OTX."""
+    pulse_count: int = 0  # количество угроз/пульсов
+    malware_samples: int = 0  # количество malware образцов
+    validation: List[str] = []  # валидационные сообщения
+
+
 class IpProfile(BaseModel):
     ip: str
     country: Optional[str] = None
@@ -71,6 +78,7 @@ class DomainScanResult(BaseModel):
     http: Optional[HttpInfo] = None
 
     ip_profiles: List[IpProfile] = []
+    otx: Optional[OtxInfo] = None
 
     scanned_at: datetime
     from_cache: bool = False

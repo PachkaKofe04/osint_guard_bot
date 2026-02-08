@@ -127,6 +127,17 @@ def format_details(result: DomainScanResult) -> str:
                 lines.append(f"    Hosting/VPS: {'да' if p.hosting else 'нет'}")
     lines.append("")
 
+    # OTX Reputation
+    if result.otx:
+        lines.append("<b>AlienVault OTX</b>")
+        if result.otx.pulse_count > 0:
+            lines.append(f"  Угрозы: {result.otx.pulse_count}")
+        else:
+            lines.append("  Угрозы: не обнаружены")
+        if result.otx.malware_samples > 0:
+            lines.append(f"  Malware образцы: {result.otx.malware_samples}")
+        lines.append("")
+
     # SSL
     s = result.ssl
     lines.append("<b>SSL / crt.sh</b>")

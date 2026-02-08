@@ -8,6 +8,7 @@ from domain_scanner.models import (
     SslInfo,
     WhoisInfo,
     IpProfile,
+    OtxInfo,
 )
 from utils.risk_types import RiskFlag, RiskLevel, RiskWeight
 from utils.risk_scoring import add_risk_flag, calculate_risk_score
@@ -125,11 +126,31 @@ def calculate_risk(
     ssl: Optional[SslInfo],
     http: Optional[HttpInfo],
     ip_profiles: Optional[List[IpProfile]] = None,
+    otx: Optional[OtxInfo] = None,
 ) -> Tuple[RiskLevel, List[RiskFlag], int]:
 
     flags: List[RiskFlag] = []
     now = datetime.utcnow()
     ip_profiles = ip_profiles or []
+
+    # OTX Reputation (AlienVault)
+    if otx:
+        if otx.pulse_count > 0:
+            add_risk_flag(
+                flags,
+                "OTX_THREATS_FOUND",
+                RiskLevel.HIGH,
+                f"Найдено {otx.pulse_count} угроз в AlienVault OTX",
+                min(otx.pulse_count, 5),  # до +5 за угрозы
+            )
+        if otx.malware_samples > 0:
+            add_risk_flag(
+                flags,
+                "OTX_MALWARE",
+                RiskLevel.HIGH,
+                f"Обнаружено {otx.malware_samples} образцов malware",
+                3,
+            )
 
     # --------------------
     # RISK SIGNALS

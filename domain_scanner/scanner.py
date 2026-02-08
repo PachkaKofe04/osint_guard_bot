@@ -11,6 +11,7 @@ from domain_scanner.models import (
     SslInfo,
     WhoisInfo,
     IpProfile,
+    OtxInfo,
 )
 from domain_scanner.risk_engine import calculate_risk
 from ip_scanner.ip_service import fetch_ip_profile_async
@@ -20,6 +21,7 @@ from services.whois_service import fetch_whois
 from services.dns_service import fetch_dns
 from services.ssl_service import fetch_ssl
 from services.http_service import fetch_http
+from services.otx_service import check_domain_reputation
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +52,7 @@ async def scan_domain(raw_domain: str) -> DomainScanResult:
     ssl: Optional[SslInfo] = None
     http: Optional[HttpInfo] = None
     ip_profiles: List[IpProfile] = []
+    otx: Optional[OtxInfo] = None
 
     # Обработка результатов
     if isinstance(results[0], Exception):
@@ -100,7 +103,16 @@ async def scan_domain(raw_domain: str) -> DomainScanResult:
                 )
             )
 
-    risk_level, flags, score = calculate_risk(whois, dns, ssl, http, ip_profiles)
+    # OTX reputation check (опционально, если есть API ключ)
+    otx_data = check_domain_reputation(normalized)
+    if otx_data:
+        otx = OtxInfo(
+            pulse_count=otx_data.get("pulse_count", 0),
+            malware_samples=otx_data.get("malware_samples", 0),
+            validation=otx_data.get("validation", []),
+        )
+
+    risk_level, flags, score = calculate_risk(whois, dns, ssl, http, ip_profiles, otx)
 
     result = DomainScanResult(
         domain=raw_domain,
@@ -113,6 +125,7 @@ async def scan_domain(raw_domain: str) -> DomainScanResult:
         ssl=ssl,
         http=http,
         ip_profiles=ip_profiles,
+        otx=otx,
         scanned_at=datetime.utcnow(),
         from_cache=False,
     )
