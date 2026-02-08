@@ -8,189 +8,140 @@ def get_main_menu() -> InlineKeyboardMarkup:
     """Главное меню с категориями сканеров."""
     builder = InlineKeyboardBuilder()
 
-    # Ряд 1: Основные проверки
+    # 2 столбика, аккуратно
     builder.row(
-        InlineKeyboardButton(text="🌐 Домен", callback_data="menu:domain"),
-        InlineKeyboardButton(text="🔗 URL", callback_data="menu:url"),
-        InlineKeyboardButton(text="📧 Email", callback_data="menu:email"),
+        InlineKeyboardButton(text="Сайт/ссылка", callback_data="help:site"),
+        InlineKeyboardButton(text="Email", callback_data="help:email"),
     )
-
-    # Ряд 2: Сетевые проверки
     builder.row(
-        InlineKeyboardButton(text="📱 Телефон", callback_data="menu:phone"),
-        InlineKeyboardButton(text="🌍 IP", callback_data="menu:ip"),
-        InlineKeyboardButton(text="👤 Username", callback_data="menu:user"),
+        InlineKeyboardButton(text="Телефон", callback_data="help:phone"),
+        InlineKeyboardButton(text="IP адрес", callback_data="help:ip"),
     )
-
-    # Ряд 3: Финансы и медиа
     builder.row(
-        InlineKeyboardButton(text="💳 BIN карты", callback_data="menu:bin"),
-        InlineKeyboardButton(text="💰 Криптокошелёк", callback_data="menu:wallet"),
+        InlineKeyboardButton(text="Никнейм", callback_data="help:user"),
+        InlineKeyboardButton(text="Карта (BIN)", callback_data="help:bin"),
     )
-
-    # Ряд 4: Медиа и утечки
     builder.row(
-        InlineKeyboardButton(text="🖼 EXIF фото", callback_data="menu:exif"),
-        InlineKeyboardButton(text="📱 QR код", callback_data="menu:qr"),
-        InlineKeyboardButton(text="🔓 Утечки", callback_data="menu:leak"),
+        InlineKeyboardButton(text="Криптокошелек", callback_data="help:wallet"),
+        InlineKeyboardButton(text="Утечки", callback_data="help:leak"),
     )
-
-    # Ряд 5: Справка
     builder.row(
-        InlineKeyboardButton(text="❓ Справка", callback_data="menu:help"),
+        InlineKeyboardButton(text="Фото", callback_data="help:photo"),
     )
 
     return builder.as_markup()
 
 
-def get_back_to_menu() -> InlineKeyboardMarkup:
-    """Кнопка возврата в главное меню."""
+def get_back_button() -> InlineKeyboardMarkup:
+    """Кнопка возврата в меню."""
     builder = InlineKeyboardBuilder()
     builder.row(
-        InlineKeyboardButton(text="◀️ Главное меню", callback_data="menu:main"),
+        InlineKeyboardButton(text="Назад", callback_data="menu:main"),
     )
     return builder.as_markup()
 
 
-def get_scanner_help(scanner: str) -> InlineKeyboardMarkup:
-    """Кнопки под справкой сканера."""
-    builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(text="◀️ Назад", callback_data="menu:main"),
-    )
-    return builder.as_markup()
-
-
-# Тексты справки для каждого сканера
-SCANNER_HELP = {
-    "domain": (
-        "🌐 <b>Сканер доменов</b>\n\n"
-        "<b>Команда:</b> <code>/scan example.com</code>\n\n"
-        "<b>Что проверяется:</b>\n"
-        "• Возраст домена (WHOIS)\n"
-        "• DNS конфигурация\n"
-        "• SSL сертификат\n"
-        "• Хостинг-провайдер\n"
-        "• Privacy protection\n\n"
-        "<b>Или просто отправь домен</b> — бот определит автоматически."
-    ),
-    "url": (
-        "🔗 <b>Сканер URL</b>\n\n"
-        "<b>Команда:</b> <code>/url https://example.com/page</code>\n\n"
-        "<b>Что проверяется:</b>\n"
-        "• Разворот сокращённых ссылок\n"
-        "• Проверка на фишинг\n"
-        "• Подозрительные TLD\n"
-        "• Редиректы\n\n"
-        "<b>Или просто отправь ссылку</b> — бот определит автоматически."
+# Тексты справки для каждого раздела
+SECTION_HELP = {
+    "site": (
+        "<b>Проверка сайта или ссылки</b>\n\n"
+        "Отправьте адрес сайта или ссылку:\n"
+        "<code>google.com</code>\n"
+        "<code>https://example.ru/page</code>\n"
+        "<code>https://bit.ly/abc123</code>\n\n"
+        "Что проверяется:\n"
+        "- Возраст домена и владелец\n"
+        "- DNS записи и SSL сертификат\n"
+        "- Разворот сокращенных ссылок\n"
+        "- Проверка на фишинг\n"
+        "- Оценка риска 0-10"
     ),
     "email": (
-        "📧 <b>Сканер Email</b>\n\n"
-        "<b>Команда:</b> <code>/email user@example.com</code>\n\n"
-        "<b>Что проверяется:</b>\n"
-        "• Валидность формата\n"
-        "• Disposable (одноразовые) email\n"
-        "• Возраст домена\n"
-        "• MX записи\n\n"
-        "<b>Или просто отправь email</b> — бот определит автоматически."
+        "<b>Проверка Email</b>\n\n"
+        "Отправьте email адрес:\n"
+        "<code>user@example.com</code>\n\n"
+        "Что проверяется:\n"
+        "- Валидность формата\n"
+        "- Одноразовый ли email\n"
+        "- Возраст домена почты\n"
+        "- MX записи\n"
+        "- Оценка риска 0-10"
     ),
     "phone": (
-        "📱 <b>Сканер телефонов</b>\n\n"
-        "<b>Команда:</b> <code>/phone +79991234567</code>\n\n"
-        "<b>Что проверяется:</b>\n"
-        "• Страна и оператор\n"
-        "• Тип номера (mobile/VoIP)\n"
-        "• Валидность формата\n\n"
-        "<b>Форматы:</b> +79991234567, 89991234567, 9991234567"
+        "<b>Проверка телефона</b>\n\n"
+        "Отправьте номер телефона:\n"
+        "<code>+79991234567</code>\n"
+        "<code>89991234567</code>\n\n"
+        "Что проверяется:\n"
+        "- Страна и оператор\n"
+        "- Тип номера (мобильный/VoIP)\n"
+        "- Валидность формата\n"
+        "- Оценка риска 0-10"
     ),
     "ip": (
-        "🌍 <b>Сканер IP адресов</b>\n\n"
-        "<b>Команда:</b> <code>/ip 8.8.8.8</code>\n\n"
-        "<b>Что проверяется:</b>\n"
-        "• Геолокация (страна, город)\n"
-        "• VPN/Proxy/Tor детекция\n"
-        "• ASN и провайдер\n"
-        "• Репутация в blacklists\n\n"
-        "<b>Или просто отправь IP</b> — бот определит автоматически."
+        "<b>Проверка IP адреса</b>\n\n"
+        "Отправьте IP адрес:\n"
+        "<code>8.8.8.8</code>\n"
+        "<code>2001:4860:4860::8888</code>\n\n"
+        "Что проверяется:\n"
+        "- Геолокация (страна, город)\n"
+        "- VPN/Proxy/Tor детекция\n"
+        "- Провайдер и ASN\n"
+        "- Репутация в blacklists\n"
+        "- Оценка риска 0-10"
     ),
     "user": (
-        "👤 <b>Username OSINT</b>\n\n"
-        "<b>Команда:</b> <code>/user johndoe</code>\n\n"
-        "<b>Что проверяется:</b>\n"
-        "• Поиск по 20+ платформам\n"
-        "• Социальные сети\n"
-        "• Профессиональные сети\n"
-        "• Форумы и сервисы\n\n"
-        "<b>Отправь username</b> для поиска."
+        "<b>Проверка никнейма</b>\n\n"
+        "Отправьте никнейм:\n"
+        "<code>/user johndoe</code>\n\n"
+        "Что проверяется:\n"
+        "- Поиск по 20+ платформам\n"
+        "- Социальные сети\n"
+        "- Профессиональные сети\n"
+        "- Форумы и сервисы"
     ),
     "bin": (
-        "💳 <b>Сканер BIN карт</b>\n\n"
-        "<b>Команда:</b> <code>/bin 427229</code>\n\n"
-        "<b>Что проверяется:</b>\n"
-        "• Платёжная система\n"
-        "• Банк-эмитент\n"
-        "• Страна выпуска\n"
-        "• Тип карты (debit/credit/prepaid)\n\n"
-        "<b>BIN:</b> первые 6-8 цифр карты."
+        "<b>Проверка карты (BIN)</b>\n\n"
+        "Отправьте первые 6-8 цифр карты:\n"
+        "<code>/bin 427229</code>\n\n"
+        "Что проверяется:\n"
+        "- Платежная система\n"
+        "- Банк-эмитент\n"
+        "- Страна выпуска\n"
+        "- Тип карты (дебетовая/кредитная)"
     ),
     "wallet": (
-        "💰 <b>Сканер криптокошельков</b>\n\n"
-        "<b>Команда:</b> <code>/wallet 0x...</code> или <code>/wallet 1A...</code>\n\n"
-        "<b>Что проверяется:</b>\n"
-        "• Bitcoin, Ethereum, USDT, Solana\n"
-        "• Баланс кошелька\n"
-        "• Проверка в scam-базах\n"
-        "• История транзакций\n\n"
-        "<b>Или просто отправь адрес</b> — бот определит автоматически."
-    ),
-    "exif": (
-        "🖼 <b>EXIF анализ фото</b>\n\n"
-        "<b>Как использовать:</b>\n"
-        "Просто отправь фотографию боту.\n\n"
-        "<b>Что извлекается:</b>\n"
-        "• GPS координаты (если есть)\n"
-        "• Модель камеры/телефона\n"
-        "• Дата и время съёмки\n"
-        "• Автор и ПО\n\n"
-        "⚠️ <i>Предупреждает о рисках приватности</i>"
-    ),
-    "qr": (
-        "📱 <b>Декодер QR кодов</b>\n\n"
-        "<b>Как использовать:</b>\n"
-        "Отправь фото с QR кодом и подпись <code>/qr</code>\n"
-        "Или ответь на фото командой <code>/qr</code>\n\n"
-        "<b>Что проверяется:</b>\n"
-        "• URL — на фишинг\n"
-        "• WiFi — сеть и пароль\n"
-        "• Криптоадреса — проверка\n"
-        "• Email, телефон, геолокация"
+        "<b>Проверка криптокошелька</b>\n\n"
+        "Отправьте адрес кошелька:\n"
+        "<code>0x742d35Cc6634C0532925a3b844Bc9e7595f8fE01</code>\n"
+        "<code>1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2</code>\n\n"
+        "Поддерживаются:\n"
+        "- Bitcoin, Ethereum, USDT, Solana\n\n"
+        "Что проверяется:\n"
+        "- Баланс кошелька\n"
+        "- Проверка в scam-базах\n"
+        "- Оценка риска 0-10"
     ),
     "leak": (
-        "🔓 <b>Проверка утечек</b>\n\n"
-        "<b>Команда:</b> <code>/leak user@example.com</code>\n\n"
-        "<b>Что проверяется:</b>\n"
-        "• Email в базах утечек\n"
-        "• Телефон в базах утечек\n"
-        "• Какие данные скомпрометированы\n\n"
-        "⚠️ <i>Используется для проверки собственных данных</i>"
+        "<b>Проверка утечек данных</b>\n\n"
+        "Отправьте email или телефон:\n"
+        "<code>/leak user@example.com</code>\n"
+        "<code>/leak +79991234567</code>\n\n"
+        "Что проверяется:\n"
+        "- Наличие в базах утечек\n"
+        "- Какие данные скомпрометированы\n"
+        "- Дата утечки\n"
+        "- Оценка риска 0-10"
     ),
-    "help": (
-        "❓ <b>Справка по боту</b>\n\n"
-        "<b>OSINT Guard Bot</b> — бот для анализа безопасности.\n\n"
-        "<b>Автоматическое определение:</b>\n"
-        "Просто отправь данные — бот сам определит тип:\n"
-        "• Домен, URL, Email, IP, телефон, криптоадрес\n\n"
-        "<b>Все команды:</b>\n"
-        "/scan — домен\n"
-        "/url — ссылка\n"
-        "/email — email\n"
-        "/phone — телефон\n"
-        "/ip — IP адрес\n"
-        "/user — username\n"
-        "/bin — BIN карты\n"
-        "/wallet — криптокошелёк\n"
-        "/leak — утечки данных\n"
-        "/qr — QR код (отправь фото)\n\n"
-        "<b>Фото:</b> EXIF анализ автоматически"
+    "photo": (
+        "<b>Анализ фотографии</b>\n\n"
+        "Просто отправьте фото.\n\n"
+        "Что извлекается:\n"
+        "- GPS координаты (если есть)\n"
+        "- Модель камеры/телефона\n"
+        "- Дата и время съемки\n"
+        "- Оценка риска приватности\n\n"
+        "Для проверки QR кода:\n"
+        "Отправьте фото с подписью <code>/qr</code>"
     ),
 }
