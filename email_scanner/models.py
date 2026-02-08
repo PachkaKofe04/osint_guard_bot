@@ -34,6 +34,9 @@ class EmailInfo(BaseModel):
     domain_age_days: Optional[int] = None
     is_catch_all: Optional[bool] = None
 
+    # Gravatar
+    gravatar_url: Optional[str] = None
+
 
 class EmailScanResult(BaseModel):
     """Результат сканирования email."""
