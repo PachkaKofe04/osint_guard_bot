@@ -49,6 +49,10 @@ def format_email_result(result: EmailScanResult) -> str:
         else:
             lines.append(f"<b>Утечки:</b> ✅ Не найден в известных утечках")
 
+        # Gravatar
+        if info.gravatar_url:
+            lines.append(f"<b>Gravatar:</b> <a href=\"{info.gravatar_url}\">Аватар найден</a>")
+
         lines.append("")
 
     # Оценка риска

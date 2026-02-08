@@ -12,6 +12,7 @@ from email_scanner.models import EmailInfo, EmailScanResult
 from email_scanner.disposable import is_disposable_email, is_free_provider, get_provider_name
 from email_scanner.risk_engine import calculate_email_risk
 from utils.cache import TTLCache
+from services.gravatar_service import check_gravatar_exists
 
 log = logging.getLogger(__name__)
 
@@ -101,8 +102,11 @@ async def scan_email(raw_email: str) -> EmailScanResult:
     # Парсим email
     local_part, domain = parse_email(email)
 
-    # Получаем MX записи
-    mx_records = await fetch_mx_records(domain)
+    # Параллельно получаем MX записи и проверяем Gravatar
+    mx_task = fetch_mx_records(domain)
+    gravatar_task = check_gravatar_exists(email)
+
+    mx_records, gravatar_url = await asyncio.gather(mx_task, gravatar_task)
     has_mx = len(mx_records) > 0
 
     # Проверяем тип домена
@@ -128,6 +132,8 @@ async def scan_email(raw_email: str) -> EmailScanResult:
         # HIBP интеграция — пока без API (требует ключ)
         breach_count=0,
         breaches=[],
+        # Gravatar
+        gravatar_url=gravatar_url,
     )
 
     # Рассчитываем риск
