@@ -14,7 +14,7 @@ from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
 from config import settings
-from handlers.common import router as common_router
+from handlers.menu import router as menu_router
 from handlers.scan_domain import router as scan_router
 from handlers.phone_scan import router as phone_router
 from handlers.bin_scan import router as bin_router
@@ -103,7 +103,7 @@ async def main() -> None:
     _dp.update.middleware(RateLimitMiddleware(min_interval_seconds=10))
 
     # Роутеры
-    _dp.include_router(common_router)
+    _dp.include_router(menu_router)
     _dp.include_router(scan_router)
     _dp.include_router(phone_router)
     _dp.include_router(bin_router)
