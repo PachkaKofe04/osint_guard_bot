@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(e:\\\\MyProjects\\\\osint_guard_bot_v2\\\\.venv\\\\Scripts\\\\python.exe:*)",
-      "Bash(cmd /c:*)",
-      "Bash(powershell -Command:*)"
-    ]
-  }
-}
