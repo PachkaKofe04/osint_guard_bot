@@ -7,9 +7,10 @@ import re
 from datetime import datetime
 from typing import Optional
 
-from ip_scanner.models import IpInfo, IpScanResult
+from ip_scanner.models import IpInfo, IpScanResult, OtxInfo
 from ip_scanner.risk_engine import calculate_ip_risk
 from ip_scanner.ip_service import fetch_ip_profile_async
+from services.otx_service import check_ip_reputation
 from utils.cache import TTLCache
 
 log = logging.getLogger(__name__)
@@ -142,8 +143,20 @@ async def scan_ip(raw_ip: str) -> IpScanResult:
         _ip_cache.set(ip, result)
         return result
 
-    # Получаем данные от ip-api.com
-    api_data = await fetch_ip_profile_async(ip)
+    # Получаем данные от ip-api.com и OTX параллельно
+    api_data, otx_data = await asyncio.gather(
+        fetch_ip_profile_async(ip),
+        asyncio.to_thread(check_ip_reputation, ip),
+    )
+
+    # Строим OtxInfo если данные получены
+    otx: Optional[OtxInfo] = None
+    if otx_data is not None:
+        otx = OtxInfo(
+            pulse_count=otx_data.get("pulse_count", 0),
+            malware_samples=otx_data.get("malware_samples", 0),
+            validation=otx_data.get("validation", []),
+        )
 
     if api_data is None:
         info = IpInfo(
@@ -173,11 +186,12 @@ async def scan_ip(raw_ip: str) -> IpScanResult:
         )
 
     # Рассчитываем риск
-    risk_level, flags, score = calculate_ip_risk(info)
+    risk_level, flags, score = calculate_ip_risk(info, otx)
 
     result = IpScanResult(
         ip=ip,
         info=info,
+        otx=otx,
         risk_level=risk_level,
         flags=flags,
         score=score,

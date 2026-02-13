@@ -7,6 +7,13 @@ from pydantic import BaseModel
 from utils.risk_types import RiskFlag, RiskLevel
 
 
+class OtxInfo(BaseModel):
+    """Данные репутации IP из AlienVault OTX."""
+    pulse_count: int = 0
+    malware_samples: int = 0
+    validation: List[str] = []
+
+
 class IpInfo(BaseModel):
     """Полная информация об IP адресе."""
     ip: str
@@ -49,6 +56,7 @@ class IpScanResult(BaseModel):
     """Результат сканирования IP."""
     ip: str
     info: Optional[IpInfo] = None
+    otx: Optional[OtxInfo] = None
     risk_level: RiskLevel
     flags: List[RiskFlag] = []
     score: int

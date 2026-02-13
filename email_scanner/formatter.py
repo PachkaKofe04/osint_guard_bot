@@ -53,6 +53,14 @@ def format_email_result(result: EmailScanResult) -> str:
         if info.gravatar_url:
             lines.append(f"<b>Gravatar:</b> <a href=\"{info.gravatar_url}\">Аватар найден</a>")
 
+        # Holehe — регистрации на платформах
+        if info.holehe_hits:
+            lines.append(f"<b>Платформы ({len(info.holehe_hits)}):</b>")
+            for domain in info.holehe_hits[:15]:
+                lines.append(f"  • {domain}")
+            if len(info.holehe_hits) > 15:
+                lines.append(f"  ... и ещё {len(info.holehe_hits) - 15}")
+
         lines.append("")
 
     # Оценка риска

@@ -1,5 +1,7 @@
 # username_scanner/formatter.py
 """Форматирование результатов сканирования Username для Telegram."""
+from typing import List, Tuple
+
 from username_scanner.models import UsernameScanResult
 from utils.risk_types import get_risk_emoji, get_risk_label, RiskLevel
 
@@ -77,5 +79,46 @@ def format_username_result(result: UsernameScanResult) -> str:
             else:
                 flag_emoji = "🟢"
             lines.append(f"    {flag_emoji} {flag.message}")
+
+    return "\n".join(lines)
+
+
+def format_maigret_result(
+    username: str,
+    hits: List[Tuple[str, str]],
+    total_checked: int,
+) -> str:
+    """
+    Форматирует результат углублённого поиска Maigret для Telegram.
+
+    Args:
+        username:      Искомый никнейм
+        hits:          Список (site_name, profile_url) где найден
+        total_checked: Сколько сайтов проверено
+    """
+    lines = []
+    lines.append("🔬 <b>Углублённый поиск Maigret</b>")
+    lines.append(f"<code>@{username}</code>")
+    lines.append("")
+
+    if total_checked == 0:
+        lines.append("⚠️ Maigret недоступен или произошла ошибка.")
+        return "\n".join(lines)
+
+    lines.append(f"🔍 Проверено платформ: <b>{total_checked}</b>")
+    lines.append(f"✅ Найден на: <b>{len(hits)}</b>")
+    lines.append("")
+
+    if hits:
+        lines.append("📋 <b>Найденные профили:</b>")
+        for site_name, url in hits[:30]:
+            if url:
+                lines.append(f"  • <a href=\"{url}\">{site_name}</a>")
+            else:
+                lines.append(f"  • {site_name}")
+        if len(hits) > 30:
+            lines.append(f"  ... и ещё {len(hits) - 30}")
+    else:
+        lines.append("❌ Профили не найдены в проверенных платформах.")
 
     return "\n".join(lines)

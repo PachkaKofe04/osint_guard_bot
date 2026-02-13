@@ -37,6 +37,9 @@ class EmailInfo(BaseModel):
     # Gravatar
     gravatar_url: Optional[str] = None
 
+    # Holehe — платформы, где зарегистрирован email
+    holehe_hits: List[str] = []
+
 
 class EmailScanResult(BaseModel):
     """Результат сканирования email."""

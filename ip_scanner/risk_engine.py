@@ -2,7 +2,7 @@
 """Движок оценки рисков для IP."""
 from typing import List, Optional, Tuple
 
-from ip_scanner.models import IpInfo
+from ip_scanner.models import IpInfo, OtxInfo
 from utils.risk_types import RiskFlag, RiskLevel
 from utils.risk_scoring import add_risk_flag, calculate_risk_score
 
@@ -52,7 +52,7 @@ class IpRiskWeight:
     CLEAN_IP = -1             # Чистый IP
 
 
-def calculate_ip_risk(info: Optional[IpInfo]) -> Tuple[RiskLevel, List[RiskFlag], int]:
+def calculate_ip_risk(info: Optional[IpInfo], otx: Optional[OtxInfo] = None) -> Tuple[RiskLevel, List[RiskFlag], int]:
     """
     Расчёт риска для IP адреса.
 
@@ -208,6 +208,33 @@ def calculate_ip_risk(info: Optional[IpInfo]) -> Tuple[RiskLevel, List[RiskFlag]
             f"Геолокация: {info.city}, {info.country}",
             0,
         )
+
+    # OTX репутация
+    if otx is not None:
+        if otx.malware_samples > 0:
+            add_risk_flag(
+                flags,
+                "OTX_MALWARE",
+                RiskLevel.HIGH,
+                f"OTX: найдено {otx.malware_samples} malware-образцов, связанных с IP",
+                4,
+            )
+        elif otx.pulse_count > 5:
+            add_risk_flag(
+                flags,
+                "OTX_HIGH_PULSES",
+                RiskLevel.HIGH,
+                f"OTX: IP упоминается в {otx.pulse_count} threat-пульсах",
+                3,
+            )
+        elif otx.pulse_count > 0:
+            add_risk_flag(
+                flags,
+                "OTX_PULSES",
+                RiskLevel.MEDIUM,
+                f"OTX: IP упоминается в {otx.pulse_count} threat-пульсах",
+                2,
+            )
 
     # Рассчитываем итоговый риск
     risk_score = calculate_risk_score(flags)

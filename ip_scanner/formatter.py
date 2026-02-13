@@ -97,6 +97,17 @@ def format_ip_result(result: IpScanResult) -> str:
                     lines.append("    🚫 IP в чёрном списке")
                 lines.append("")
 
+    # OTX репутация
+    if result.otx is not None:
+        otx = result.otx
+        if otx.pulse_count > 0 or otx.malware_samples > 0:
+            lines.append("🛡 <b>AlienVault OTX:</b>")
+            pulse_emoji = "🔴" if otx.pulse_count > 5 else "🟡" if otx.pulse_count > 0 else "🟢"
+            lines.append(f"    {pulse_emoji} Threat-пульсов: {otx.pulse_count}")
+            if otx.malware_samples > 0:
+                lines.append(f"    🔴 Malware-образцов: {otx.malware_samples}")
+            lines.append("")
+
     # Флаги рисков
     if result.flags:
         lines.append("📋 <b>Детали анализа:</b>")

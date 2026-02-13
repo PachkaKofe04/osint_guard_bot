@@ -13,6 +13,7 @@ from email_scanner.disposable import is_disposable_email, is_free_provider, get_
 from email_scanner.risk_engine import calculate_email_risk
 from utils.cache import TTLCache
 from services.gravatar_service import check_gravatar_exists
+from services.holehe_service import check_holehe
 
 log = logging.getLogger(__name__)
 
@@ -102,11 +103,12 @@ async def scan_email(raw_email: str) -> EmailScanResult:
     # Парсим email
     local_part, domain = parse_email(email)
 
-    # Параллельно получаем MX записи и проверяем Gravatar
-    mx_task = fetch_mx_records(domain)
-    gravatar_task = check_gravatar_exists(email)
-
-    mx_records, gravatar_url = await asyncio.gather(mx_task, gravatar_task)
+    # Параллельно получаем MX записи, Gravatar и Holehe
+    mx_records, gravatar_url, holehe_hits = await asyncio.gather(
+        fetch_mx_records(domain),
+        check_gravatar_exists(email),
+        check_holehe(email),
+    )
     has_mx = len(mx_records) > 0
 
     # Проверяем тип домена
@@ -134,6 +136,8 @@ async def scan_email(raw_email: str) -> EmailScanResult:
         breaches=[],
         # Gravatar
         gravatar_url=gravatar_url,
+        # Holehe
+        holehe_hits=holehe_hits,
     )
 
     # Рассчитываем риск
