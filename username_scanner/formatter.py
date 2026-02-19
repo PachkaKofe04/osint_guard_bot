@@ -60,14 +60,6 @@ def format_username_result(result: UsernameScanResult) -> str:
                     lines.append(f"    ... и ещё {len(not_found) - 5}")
                 lines.append("")
 
-            # Ошибки (если были)
-            errors = [p for p in info.platforms if p.status == "error"]
-            if errors and len(errors) < len(info.platforms) // 2:
-                lines.append("⚠️ <b>Ошибки проверки:</b>")
-                for p in errors[:3]:
-                    lines.append(f"    • {p.platform}: {p.error or 'недоступен'}")
-                lines.append("")
-
     # Флаги рисков
     if result.flags:
         lines.append("📋 <b>Детали анализа:</b>")

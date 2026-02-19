@@ -12,6 +12,7 @@ load_dotenv()
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
+from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import settings
 from handlers.menu import router as menu_router
@@ -85,7 +86,7 @@ async def main() -> None:
         token=settings.BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
-    _dp = Dispatcher()
+    _dp = Dispatcher(storage=MemoryStorage())
     _shutdown_event = asyncio.Event()
 
     # Регистрируем обработчики сигналов
@@ -100,7 +101,12 @@ async def main() -> None:
 
     # Мидлвары
     _dp.update.middleware(LoggingMiddleware())
-    _dp.update.middleware(RateLimitMiddleware(min_interval_seconds=10))
+    # Rate limiter: 5 запросов подряд разрешены, потом минимум 3 сек между запросами
+    _dp.update.middleware(RateLimitMiddleware(
+        burst_limit=5,
+        window_seconds=30,
+        min_interval_seconds=3
+    ))
 
     # Роутеры
     _dp.include_router(menu_router)

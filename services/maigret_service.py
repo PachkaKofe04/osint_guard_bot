@@ -64,12 +64,22 @@ async def maigret_search(
         )
 
         found: List[Tuple[str, str]] = []
+
+        # Отладка: смотрим что приходит
+        status_counts = {}
         for site_name, result in results.items():
+            # Подсчитываем статусы
+            status = getattr(result, "status", None)
+            status_name = status.name if hasattr(status, "name") else str(status)
+            status_counts[status_name] = status_counts.get(status_name, 0) + 1
+
+            # Ищем CLAIMED
             if hasattr(result, "status") and result.status == MaigretCheckStatus.CLAIMED:
                 url = getattr(result, "site_url_user", "") or ""
                 found.append((site_name, url))
 
         log.info(f"[Maigret] {username}: найден на {len(found)}/{total_checked} платформах")
+        log.info(f"[Maigret] Статусы: {status_counts}")
         return found, total_checked
 
     except asyncio.TimeoutError:
