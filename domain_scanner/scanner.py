@@ -109,7 +109,6 @@ async def scan_domain(raw_domain: str) -> DomainScanResult:
         otx = OtxInfo(
             pulse_count=otx_data.get("pulse_count", 0),
             malware_samples=otx_data.get("malware_samples", 0),
-            validation=otx_data.get("validation", []),
         )
 
     risk_level, flags, score = calculate_risk(whois, dns, ssl, http, ip_profiles, otx)

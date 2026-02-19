@@ -48,7 +48,7 @@ class OtxInfo(BaseModel):
     """Данные репутации из AlienVault OTX."""
     pulse_count: int = 0  # количество угроз/пульсов
     malware_samples: int = 0  # количество malware образцов
-    validation: List[str] = []  # валидационные сообщения
+    # validation игнорируем — OTX возвращает list[dict], а нам достаточно счётчиков
 
 
 class IpProfile(BaseModel):

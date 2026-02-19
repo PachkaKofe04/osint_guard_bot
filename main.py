@@ -113,8 +113,8 @@ async def main() -> None:
     _dp.include_router(username_router)
     _dp.include_router(wallet_router)
     _dp.include_router(leak_router)
-    _dp.include_router(exif_router)
-    _dp.include_router(qr_router)
+    _dp.include_router(qr_router)        # QR FIRST — проверяет caption "/qr"
+    _dp.include_router(exif_router)      # EXIF SECOND — ловит все остальные фото
     # Auto-detect последним — catch-all для сообщений без команд
     _dp.include_router(auto_detect_router)
 

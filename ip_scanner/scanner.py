@@ -155,7 +155,6 @@ async def scan_ip(raw_ip: str) -> IpScanResult:
         otx = OtxInfo(
             pulse_count=otx_data.get("pulse_count", 0),
             malware_samples=otx_data.get("malware_samples", 0),
-            validation=otx_data.get("validation", []),
         )
 
     if api_data is None:
