@@ -20,9 +20,9 @@ log = logging.getLogger(__name__)
 try:
     from pyzbar.pyzbar import decode as pyzbar_decode
     PYZBAR_AVAILABLE = True
-except ImportError:
+except (ImportError, OSError, Exception):
     PYZBAR_AVAILABLE = False
-    log.warning("[QR] pyzbar not available, QR decoding will be limited")
+    log.warning("[QR] pyzbar not available (libzbar DLL missing?), QR decoding disabled")
 
 
 # Подозрительные TLD для URL

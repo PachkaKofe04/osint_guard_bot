@@ -50,9 +50,14 @@ def format_exif_result(result: ExifScanResult) -> str:
         lines.append("")
 
         if not info.has_exif:
-            lines.append("✅ <b>EXIF данные отсутствуют</b>")
-            lines.append("Метаданные удалены или изображение не содержит EXIF.")
-            lines.append("Это хорошо для приватности!")
+            lines.append("⚠️ <b>EXIF данные не найдены</b>")
+            lines.append("")
+            lines.append("Скорее всего, Telegram сжал фото и удалил метаданные.")
+            lines.append("")
+            lines.append("📎 <b>Чтобы сохранить EXIF — отправь файлом:</b>")
+            lines.append("    • <b>Телефон:</b> Скрепка → Файл → выбери фото из галереи")
+            lines.append("    • <b>ПК:</b> Перетащи фото с зажатым <code>Shift</code>")
+            lines.append("      или при прикреплении выбери «Отправить без сжатия»")
         else:
             # GPS
             if info.has_gps and info.gps:

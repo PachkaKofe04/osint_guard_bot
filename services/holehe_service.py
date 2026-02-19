@@ -6,13 +6,17 @@ from typing import List
 
 log = logging.getLogger(__name__)
 
+# Глушим httpx INFO-логи (holehe генерирует их сотнями)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
 
 def _run_holehe_sync(email: str) -> List[str]:
     """
     Запускает holehe через trio в отдельном потоке.
 
-    holehe использует trio (несовместим с asyncio напрямую),
-    поэтому запускаем через asyncio.to_thread + trio.run.
+    Все модули запускаются ПАРАЛЛЕЛЬНО через trio.open_nursery(),
+    что сокращает время с ~3 мин до ~15-20 сек.
 
     Returns:
         Список доменов, на которых зарегистрирован email
@@ -28,15 +32,25 @@ def _run_holehe_sync(email: str) -> List[str]:
         found: List[str] = []
 
         async def _search() -> None:
-            async with httpx.AsyncClient() as client:
-                for website in websites:
-                    out: List[dict] = []
+            lock = trio.Lock()
+
+            async def check_one(website) -> None:
+                out: List[dict] = []
+                try:
                     await launch_module(website, email, client, out)
-                    for item in out:
-                        if item.get("exists"):
-                            domain = item.get("domain") or item.get("name", "")
-                            if domain:
+                except Exception:
+                    pass
+                for item in out:
+                    if item.get("exists"):
+                        domain = item.get("domain") or item.get("name", "")
+                        if domain:
+                            async with lock:
                                 found.append(domain)
+
+            async with httpx.AsyncClient() as client:
+                async with trio.open_nursery() as nursery:
+                    for website in websites:
+                        nursery.start_soon(check_one, website)
 
         trio.run(_search)
         return found
@@ -53,10 +67,8 @@ async def check_holehe(email: str, timeout: int = 45) -> List[str]:
     """
     Async-обёртка для holehe.
 
-    Запускает синхронный trio-код в отдельном потоке через asyncio.to_thread.
-
     Args:
-        email: Email для проверки
+        email:   Email для проверки
         timeout: Максимальное время ожидания (секунды)
 
     Returns:

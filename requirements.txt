@@ -9,6 +9,7 @@ beautifulsoup4
 python-dotenv
 pillow
 pyzbar
+# Windows: для pyzbar нужна libzbar-64.dll — скачать с https://github.com/dani-garcia/zbar-windows/releases
 
 # Testing
 pytest>=8.0.0

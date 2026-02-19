@@ -19,13 +19,25 @@ def _get_exif_data(image: Image.Image) -> Dict[str, Any]:
     exif_data = {}
 
     try:
-        raw_exif = image._getexif()
+        # Современный API Pillow (6.0+), работает для JPEG, TIFF, PNG, WebP
+        raw_exif = image.getexif()
         if raw_exif:
             for tag_id, value in raw_exif.items():
                 tag = TAGS.get(tag_id, tag_id)
                 exif_data[tag] = value
-    except Exception as e:
-        log.warning(f"[EXIF] Error extracting EXIF: {e}")
+    except Exception:
+        pass
+
+    # Fallback: устаревший JPEG-only метод
+    if not exif_data:
+        try:
+            raw_exif = image._getexif()  # type: ignore[attr-defined]
+            if raw_exif:
+                for tag_id, value in raw_exif.items():
+                    tag = TAGS.get(tag_id, tag_id)
+                    exif_data[tag] = value
+        except Exception as e:
+            log.warning(f"[EXIF] Error extracting EXIF: {e}")
 
     return exif_data
 
