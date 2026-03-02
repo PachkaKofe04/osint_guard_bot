@@ -22,6 +22,10 @@ env/
 .claude/
 *~
 
+# Claude instructions (local only)
+CLAUDE.md
+tasks/
+
 # Logs
 logs/
 *.log
