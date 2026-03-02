@@ -47,7 +47,7 @@ def format_email_result(result: EmailScanResult) -> str:
                 breaches_str = ", ".join(info.breaches[:5])
                 lines.append(f"  └ {breaches_str}")
         else:
-            lines.append(f"<b>Утечки:</b> ✅ Не найден в известных утечках")
+            lines.append(f"<b>Утечки:</b> ℹ️ Не проверено (HIBP API не подключён)")
 
         # Gravatar
         if info.gravatar_url:
@@ -55,11 +55,13 @@ def format_email_result(result: EmailScanResult) -> str:
 
         # Holehe — регистрации на платформах
         if info.holehe_hits:
-            lines.append(f"<b>Платформы ({len(info.holehe_hits)}):</b>")
+            lines.append(f"<b>Платформы ({len(info.holehe_hits)} найдено):</b>")
             for domain in info.holehe_hits[:15]:
                 lines.append(f"  • {domain}")
             if len(info.holehe_hits) > 15:
                 lines.append(f"  ... и ещё {len(info.holehe_hits) - 15}")
+        elif info.is_valid_format and info.has_mx_records:
+            lines.append(f"<b>Платформы:</b> Не найден (проверено 250+ сервисов через Holehe)")
 
         lines.append("")
 

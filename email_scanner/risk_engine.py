@@ -100,14 +100,7 @@ def calculate_email_risk(info: Optional[EmailInfo]) -> Tuple[RiskLevel, List[Ris
             f"Email найден в {info.breach_count} утечках: {breaches_str}",
             EmailRiskWeight.FEW_BREACHES,
         )
-    else:
-        add_risk_flag(
-            flags,
-            "NO_BREACHES",
-            RiskLevel.LOW,
-            "Email не найден в известных утечках",
-            EmailRiskWeight.NO_BREACHES,
-        )
+    # HIBP не подключён — проверку утечек не производим, флаг не выдаём
 
     # Возраст домена
     if info.domain_age_days is not None and info.domain_age_days < 30:

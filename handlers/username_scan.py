@@ -1,9 +1,11 @@
 # handlers/username_scan.py
 """Обработчик команды /username для OSINT поиска."""
+import io
 import logging
 
 from aiogram import Router, types, F
 from aiogram.filters import Command
+from aiogram.types import BufferedInputFile
 
 from username_scanner.scanner import scan_username
 from username_scanner.formatter import format_username_result, format_maigret_result
@@ -95,3 +97,14 @@ async def callback_maigret(callback: types.CallbackQuery) -> None:
 
     result_text = format_maigret_result(username, hits, total_checked)
     await waiting_msg.edit_text(result_text, disable_web_page_preview=True)
+
+    # Если результатов много — отправляем полный список файлом
+    if len(hits) > 50:
+        lines = [f"Maigret: @{username}", f"Проверено: {total_checked} | Найдено: {len(hits)}", ""]
+        for i, (site_name, url) in enumerate(hits, 1):
+            lines.append(f"{i}. {site_name}" + (f" — {url}" if url else ""))
+        file_bytes = "\n".join(lines).encode("utf-8")
+        await callback.message.answer_document(
+            BufferedInputFile(file_bytes, filename=f"results_{username}.txt"),
+            caption=f"Полный список ({len(hits)} профилей)",
+        )
