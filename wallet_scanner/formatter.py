@@ -79,9 +79,14 @@ def format_wallet_result(result: WalletScanResult) -> str:
                     lines.append(f"    ≈ ${info.balance_usd:,.2f} USD")
                 lines.append("")
 
-            # Транзакции
+            # Транзакции + активность
             if info.tx_count is not None:
                 lines.append(f"📊 <b>Транзакций:</b> {info.tx_count}")
+            if info.first_seen:
+                lines.append(f"📅 <b>Первая активность:</b> {info.first_seen.strftime('%Y-%m-%d')}")
+            if info.last_seen:
+                lines.append(f"🕒 <b>Последняя активность:</b> {info.last_seen.strftime('%Y-%m-%d')}")
+            if info.tx_count is not None or info.first_seen or info.last_seen:
                 lines.append("")
 
             # Смарт-контракт
@@ -102,16 +107,18 @@ def format_wallet_result(result: WalletScanResult) -> str:
             lines.append(f"    {flag_emoji} {flag.message}")
 
     # Ссылки на блокчейн-эксплореры
-    if info and info.is_valid:
+    EXPLORER_URLS = {
+        "BTC":  f"https://blockchair.com/bitcoin/address/{result.address}",
+        "ETH":  f"https://etherscan.io/address/{result.address}",
+        "LTC":  f"https://blockchair.com/litecoin/address/{result.address}",
+        "DOGE": f"https://blockchair.com/dogecoin/address/{result.address}",
+        "TRX":  f"https://tronscan.org/#/address/{result.address}",
+        "XRP":  f"https://xrpscan.com/account/{result.address}",
+        "SOL":  f"https://solscan.io/account/{result.address}",
+        "XMR":  f"https://xmrchain.net/search?value={result.address}",
+    }
+    if info and info.is_valid and result.currency in EXPLORER_URLS:
         lines.append("")
-        lines.append("🔗 <b>Просмотреть:</b>")
-        if info.currency == "BTC":
-            lines.append(f"    <a href=\"https://blockchain.info/address/{result.address}\">Blockchain.info</a>")
-        elif info.currency == "ETH":
-            lines.append(f"    <a href=\"https://etherscan.io/address/{result.address}\">Etherscan</a>")
-        elif info.currency == "TRX":
-            lines.append(f"    <a href=\"https://tronscan.org/#/address/{result.address}\">TronScan</a>")
-        elif info.currency == "LTC":
-            lines.append(f"    <a href=\"https://blockchair.com/litecoin/address/{result.address}\">Blockchair</a>")
+        lines.append(f"🔗 <a href=\"{EXPLORER_URLS[result.currency]}\">Открыть в эксплорере</a>")
 
     return "\n".join(lines)
