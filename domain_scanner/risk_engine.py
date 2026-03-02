@@ -1,5 +1,5 @@
 # domain_scanner/risk_engine.py
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 from domain_scanner.models import (
@@ -130,7 +130,7 @@ def calculate_risk(
 ) -> Tuple[RiskLevel, List[RiskFlag], int]:
 
     flags: List[RiskFlag] = []
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     ip_profiles = ip_profiles or []
 
     # OTX Reputation (AlienVault)
@@ -159,7 +159,10 @@ def calculate_risk(
     # WHOIS
     if whois:
         if whois.creation_date:
-            age_days = (now - whois.creation_date).days
+            cd = whois.creation_date
+            if cd.tzinfo is None:
+                cd = cd.replace(tzinfo=timezone.utc)
+            age_days = (now - cd).days
 
             # Возраст домена - улучшенная логика
             if age_days < 30:
@@ -271,7 +274,10 @@ def calculate_risk(
     if ssl:
         # SSL сертификат как индикатор возраста домена
         if ssl.first_seen:
-            ssl_age_days = (now - ssl.first_seen).days
+            fs = ssl.first_seen
+            if fs.tzinfo is None:
+                fs = fs.replace(tzinfo=timezone.utc)
+            ssl_age_days = (now - fs).days
 
             # Свежий сертификат (< 30 дней)
             if ssl_age_days < 30:

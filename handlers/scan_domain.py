@@ -10,7 +10,7 @@ from keyboards.domain_kb import domain_details_keyboard, DETAILS_PREFIX
 router = Router()
 
 
-@router.message(Command("scan"))
+@router.message(Command("scan", "domain"))
 async def cmd_scan(message: types.Message) -> None:
     """
     Обработка команды /scan <домен>.

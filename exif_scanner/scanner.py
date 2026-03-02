@@ -13,6 +13,73 @@ from exif_scanner.risk_engine import calculate_exif_risk
 
 log = logging.getLogger(__name__)
 
+# --- Регистрация плагинов Pillow ---
+
+# HEIC/HEIF/AVIF (iPhone, Apple, современные форматы)
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+    log.info("[EXIF] pillow-heif: HEIC/HEIF/AVIF поддерживаются")
+except ImportError:
+    log.warning("[EXIF] pillow-heif не установлен (pip install pillow-heif)")
+
+# RAW поддержка через rawpy (NEF, CR2, ARW, DNG, ORF, RAF, RW2, PEF, SRW...)
+RAWPY_AVAILABLE = False
+try:
+    import rawpy
+    RAWPY_AVAILABLE = True
+    log.info("[EXIF] rawpy: RAW форматы поддерживаются (NEF/CR2/ARW/DNG/...)")
+except ImportError:
+    log.warning("[EXIF] rawpy не установлен (pip install rawpy) — RAW форматы не поддерживаются")
+
+# RAW расширения файлов (камеры разных производителей)
+RAW_EXTENSIONS = {
+    ".nef", ".nrw",           # Nikon
+    ".cr2", ".cr3", ".crw",   # Canon
+    ".arw", ".srf", ".sr2",   # Sony
+    ".dng",                    # Adobe DNG (универсальный)
+    ".orf",                    # Olympus
+    ".raf",                    # Fujifilm
+    ".rw2", ".raw",            # Panasonic
+    ".pef",                    # Pentax
+    ".srw",                    # Samsung
+    ".3fr",                    # Hasselblad
+    ".mef",                    # Mamiya
+    ".mrw",                    # Minolta/Konica
+    ".x3f",                    # Sigma
+    ".rwl",                    # Leica
+    ".iiq",                    # Phase One
+}
+
+
+def _open_image(image_data: bytes, filename: str = "") -> Optional[Image.Image]:
+    """
+    Открывает изображение с поддержкой максимального числа форматов.
+    Порядок попыток: Pillow → rawpy (RAW камер).
+    """
+    # Попытка 1: Pillow (нативно + heif плагин если установлен)
+    try:
+        img = Image.open(io.BytesIO(image_data))
+        img.load()  # Принудительно загружаем данные
+        return img
+    except Exception:
+        pass
+
+    # Попытка 2: rawpy для RAW форматов камер
+    if RAWPY_AVAILABLE:
+        ext = ("." + filename.rsplit(".", 1)[-1]).lower() if "." in filename else ""
+        if ext in RAW_EXTENSIONS or not ext:
+            try:
+                import rawpy
+                import numpy as np
+                raw = rawpy.imread(io.BytesIO(image_data))
+                rgb = raw.postprocess()
+                return Image.fromarray(rgb)
+            except Exception:
+                pass
+
+    return None
+
 
 def _get_exif_data(image: Image.Image) -> Dict[str, Any]:
     """Извлекает EXIF данные из изображения."""
@@ -121,10 +188,10 @@ async def scan_exif(image_data: bytes, filename: str = "image") -> ExifScanResul
     """
     log.info(f"[EXIF Scanner] Scanning: {filename}")
 
-    try:
-        image = Image.open(io.BytesIO(image_data))
-    except Exception as e:
-        log.warning(f"[EXIF] Cannot open image: {e}")
+    image = _open_image(image_data, filename)
+    if image is None:
+        ext = filename.rsplit(".", 1)[-1].upper() if "." in filename else "?"
+        log.warning(f"[EXIF] Cannot open image: {filename} (format {ext} not supported)")
         info = ExifInfo(has_exif=False)
         risk_level, flags, score = calculate_exif_risk(info)
         return ExifScanResult(

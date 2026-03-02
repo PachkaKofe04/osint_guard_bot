@@ -8,6 +8,8 @@ pydantic-settings
 beautifulsoup4
 python-dotenv
 pillow
+pillow-heif
+rawpy
 pyzbar
 opencv-python
 # Windows: pyzbar требует libzbar-64.dll; если не работает — используется opencv-python как фоллбэк

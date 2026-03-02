@@ -44,6 +44,7 @@ def format_username_result(result: UsernameScanResult) -> str:
             found = [p for p in info.platforms if p.exists]
             if found:
                 lines.append("✅ <b>Найден на:</b>")
+                lines.append("<i>⚠️ Совпадение username не означает что это тот же человек</i>")
                 for p in found[:10]:  # Макс 10
                     lines.append(f"    • <a href=\"{p.url}\">{p.platform}</a>")
                 if len(found) > 10:

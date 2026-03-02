@@ -113,7 +113,10 @@ class RateLimitMiddleware(BaseMiddleware):
         # Фото и документы тоже требуют rate limiting (EXIF/QR сканы)
         is_media = message.photo is not None or message.document is not None
 
-        if not is_heavy_command and not is_media:
+        # Обычный текст без команды — auto-detect (IP, домен, email, username)
+        is_plain_text = bool(text) and not text.startswith("/")
+
+        if not is_heavy_command and not is_media and not is_plain_text:
             return await handler(event, data)
 
         now = time.time()
