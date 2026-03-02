@@ -16,13 +16,36 @@ from qr_scanner.risk_engine import calculate_qr_risk
 
 log = logging.getLogger(__name__)
 
-# Попытка импортировать pyzbar
+# Попытка импортировать pyzbar / opencv
+import sys, os
+
+PYZBAR_AVAILABLE = False
+CV2_AVAILABLE = False
+
+if sys.platform == "win32":
+    try:
+        import pyzbar as _pyzbar_pkg
+        _pyzbar_dir = os.path.dirname(_pyzbar_pkg.__file__)
+        if hasattr(os, "add_dll_directory"):
+            os.add_dll_directory(_pyzbar_dir)
+        os.environ["PATH"] = _pyzbar_dir + os.pathsep + os.environ.get("PATH", "")
+    except Exception:
+        pass
+
 try:
     from pyzbar.pyzbar import decode as pyzbar_decode
     PYZBAR_AVAILABLE = True
-except (ImportError, OSError, Exception):
-    PYZBAR_AVAILABLE = False
-    log.warning("[QR] pyzbar not available (libzbar DLL missing?), QR decoding disabled")
+    log.info("[QR] pyzbar loaded successfully")
+except (ImportError, OSError, Exception) as _e:
+    log.warning(f"[QR] pyzbar unavailable: {_e}, trying OpenCV...")
+
+if not PYZBAR_AVAILABLE:
+    try:
+        import cv2 as _cv2
+        CV2_AVAILABLE = True
+        log.info("[QR] OpenCV loaded as QR backend")
+    except ImportError:
+        log.warning("[QR] Neither pyzbar nor OpenCV available — QR decoding disabled")
 
 
 # Подозрительные TLD для URL
@@ -210,9 +233,9 @@ async def scan_qr(image_data: bytes, filename: str = "image") -> QrScanResult:
     """
     log.info(f"[QR Scanner] Scanning: {filename}")
 
-    # Проверяем доступность pyzbar
-    if not PYZBAR_AVAILABLE:
-        log.error("[QR] pyzbar library not available")
+    # Проверяем доступность хотя бы одного бэкенда
+    if not PYZBAR_AVAILABLE and not CV2_AVAILABLE:
+        log.error("[QR] No QR backend available")
         risk_level, flags, score = calculate_qr_risk(None, library_error=True)
         return QrScanResult(
             filename=filename,
@@ -240,8 +263,23 @@ async def scan_qr(image_data: bytes, filename: str = "image") -> QrScanResult:
         )
 
     # Декодируем QR
+    decoded_objects = []
     try:
-        decoded_objects = pyzbar_decode(image)
+        if PYZBAR_AVAILABLE:
+            decoded_objects = pyzbar_decode(image)
+        elif CV2_AVAILABLE:
+            import cv2
+            import numpy as np
+            img_array = np.array(image.convert("RGB"))
+            img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+            detector = cv2.QRCodeDetector()
+            data, bbox, _ = detector.detectAndDecode(img_bgr)
+            if data:
+                # Оборачиваем в объект совместимый с pyzbar
+                class _FakeQR:
+                    def __init__(self, d):
+                        self.data = d.encode("utf-8")
+                decoded_objects = [_FakeQR(data)]
     except Exception as e:
         log.warning(f"[QR] Decode error: {e}")
         decoded_objects = []

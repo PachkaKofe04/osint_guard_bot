@@ -9,7 +9,8 @@ beautifulsoup4
 python-dotenv
 pillow
 pyzbar
-# Windows: для pyzbar нужна libzbar-64.dll — скачать с https://github.com/dani-garcia/zbar-windows/releases
+opencv-python
+# Windows: pyzbar требует libzbar-64.dll; если не работает — используется opencv-python как фоллбэк
 
 # Testing
 pytest>=8.0.0
