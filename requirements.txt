@@ -7,6 +7,7 @@ whois
 pydantic-settings
 beautifulsoup4
 python-dotenv
+phonenumbers
 pillow
 pillow-heif
 rawpy
