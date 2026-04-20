@@ -1,7 +1,7 @@
 # domain_scanner/scanner.py
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 
 from domain_scanner.models import (
@@ -104,7 +104,8 @@ async def scan_domain(raw_domain: str) -> DomainScanResult:
             )
 
     # OTX reputation check (опционально, если есть API ключ)
-    otx_data = check_domain_reputation(normalized)
+    # Выносим sync-requests в пул потоков, иначе блокируется event loop на 10 сек.
+    otx_data = await asyncio.to_thread(check_domain_reputation, normalized)
     if otx_data:
         otx = OtxInfo(
             pulse_count=otx_data.get("pulse_count", 0),
@@ -125,7 +126,7 @@ async def scan_domain(raw_domain: str) -> DomainScanResult:
         http=http,
         ip_profiles=ip_profiles,
         otx=otx,
-        scanned_at=datetime.utcnow(),
+        scanned_at=datetime.now(timezone.utc),
         from_cache=False,
     )
 

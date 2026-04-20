@@ -2,7 +2,7 @@
 """Основной модуль сканирования Crypto Wallet."""
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional
 
@@ -207,7 +207,7 @@ async def scan_wallet(raw_address: str) -> WalletScanResult:
             risk_level=risk_level,
             flags=flags,
             score=score,
-            scanned_at=datetime.utcnow(),
+            scanned_at=datetime.now(timezone.utc),
         )
         _wallet_cache.set(address, result)
         return result
@@ -268,7 +268,7 @@ async def scan_wallet(raw_address: str) -> WalletScanResult:
         risk_level=risk_level,
         flags=flags,
         score=score,
-        scanned_at=datetime.utcnow(),
+        scanned_at=datetime.now(timezone.utc),
         from_cache=False,
     )
 

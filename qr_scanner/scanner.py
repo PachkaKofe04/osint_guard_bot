@@ -3,7 +3,7 @@
 import io
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Tuple
 from urllib.parse import urlparse, parse_qs
 
@@ -244,7 +244,7 @@ async def scan_qr(image_data: bytes, filename: str = "image") -> QrScanResult:
             risk_level=risk_level,
             flags=flags,
             score=score,
-            scanned_at=datetime.utcnow(),
+            scanned_at=datetime.now(timezone.utc),
         )
 
     try:
@@ -259,7 +259,7 @@ async def scan_qr(image_data: bytes, filename: str = "image") -> QrScanResult:
             risk_level=risk_level,
             flags=flags,
             score=score,
-            scanned_at=datetime.utcnow(),
+            scanned_at=datetime.now(timezone.utc),
         )
 
     # Декодируем QR
@@ -296,7 +296,7 @@ async def scan_qr(image_data: bytes, filename: str = "image") -> QrScanResult:
             risk_level=risk_level,
             flags=flags,
             score=score,
-            scanned_at=datetime.utcnow(),
+            scanned_at=datetime.now(timezone.utc),
         )
 
     # Берём первый QR код
@@ -357,7 +357,7 @@ async def scan_qr(image_data: bytes, filename: str = "image") -> QrScanResult:
         risk_level=risk_level,
         flags=flags,
         score=score,
-        scanned_at=datetime.utcnow(),
+        scanned_at=datetime.now(timezone.utc),
     )
 
     log.info(f"[QR Scanner] Decoded: type={content_type.value}, length={len(raw_data)}")

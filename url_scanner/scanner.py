@@ -1,7 +1,7 @@
 # url_scanner/scanner.py
 """Основной модуль сканирования URL."""
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -95,7 +95,7 @@ async def scan_url(raw_url: str) -> UrlScanResult:
         risk_level=risk_level,
         flags=flags,
         score=score,
-        scanned_at=datetime.utcnow(),
+        scanned_at=datetime.now(timezone.utc),
         from_cache=False,
     )
 

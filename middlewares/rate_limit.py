@@ -82,18 +82,23 @@ class RateLimitMiddleware(BaseMiddleware):
         self._cleanup_stale_entries()
 
         message: Message | None = None
+        user_id: int | None = None
 
         if event.message:
             message = event.message
-        elif event.callback_query and event.callback_query.message:
+            if message.from_user is not None:
+                user_id = message.from_user.id
+        elif event.callback_query:
+            # Для callback берём from_user у самого callback'а — это кликнувший юзер.
+            # event.callback_query.message.from_user — это БОТ (отправитель кнопки).
+            if event.callback_query.from_user is not None:
+                user_id = event.callback_query.from_user.id
             message = event.callback_query.message
 
-        if message is None or message.from_user is None:
+        if user_id is None:
             return await handler(event, data)
 
-        user_id = message.from_user.id
-
-        text = message.text or ""
+        text = (message.text if message else None) or ""
         lower = text.lower()
 
         # Команды, требующие rate limiting
@@ -111,7 +116,7 @@ class RateLimitMiddleware(BaseMiddleware):
         )
 
         # Фото и документы тоже требуют rate limiting (EXIF/QR сканы)
-        is_media = message.photo is not None or message.document is not None
+        is_media = bool(message) and (message.photo is not None or message.document is not None)
 
         # Обычный текст без команды — auto-detect (IP, домен, email, username)
         is_plain_text = bool(text) and not text.startswith("/")
@@ -139,13 +144,14 @@ class RateLimitMiddleware(BaseMiddleware):
 
             if delta < self.min_interval:
                 wait = int(self.min_interval - delta) + 1
-                try:
-                    await message.answer(
-                        f"⏱ Слишком много запросов подряд.\n"
-                        f"Подожди ещё {wait} сек перед следующим сканом."
-                    )
-                except Exception:
-                    pass
+                if message is not None:
+                    try:
+                        await message.answer(
+                            f"⏱ Слишком много запросов подряд.\n"
+                            f"Подожди ещё {wait} сек перед следующим сканом."
+                        )
+                    except Exception:
+                        pass
                 log.info(f"[RateLimit] Blocked user_id={user_id} ({len(history)} requests in {self.window_seconds}s)")
                 return
 

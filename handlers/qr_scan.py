@@ -15,10 +15,12 @@ log = logging.getLogger(__name__)
 router = Router()
 
 
-@router.message(Command("qr"))
+@router.message(Command("qr"), ~F.reply_to_message.photo)
 async def cmd_qr_help(message: types.Message, state: FSMContext) -> None:
     """
     Справка по команде /qr и активация режима ожидания QR.
+    Срабатывает, только если /qr отправлен НЕ в ответ на фото —
+    иначе обработку забирает cmd_qr_reply_to_photo.
     """
     # Устанавливаем состояние — ждём фото с QR кодом
     await state.set_state(QRScanStates.waiting_for_photo)

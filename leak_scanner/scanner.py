@@ -3,7 +3,7 @@
 import asyncio
 import hashlib
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 
 import aiohttp
@@ -173,7 +173,7 @@ async def scan_leaks(query: str, api_key: Optional[str] = None) -> LeakScanResul
         risk_level=risk_level,
         flags=flags,
         score=score,
-        scanned_at=datetime.utcnow(),
+        scanned_at=datetime.now(timezone.utc),
         from_cache=False,
     )
 

@@ -2,7 +2,7 @@
 """Основной модуль извлечения EXIF данных."""
 import io
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Tuple, Dict, Any
 
 from PIL import Image
@@ -200,7 +200,7 @@ async def scan_exif(image_data: bytes, filename: str = "image") -> ExifScanResul
             risk_level=risk_level,
             flags=flags,
             score=score,
-            scanned_at=datetime.utcnow(),
+            scanned_at=datetime.now(timezone.utc),
         )
 
     # Базовая информация
@@ -274,7 +274,7 @@ async def scan_exif(image_data: bytes, filename: str = "image") -> ExifScanResul
         risk_level=risk_level,
         flags=flags,
         score=score,
-        scanned_at=datetime.utcnow(),
+        scanned_at=datetime.now(timezone.utc),
     )
 
     log.info(f"[EXIF Scanner] Result: has_exif={has_exif}, has_gps={info.has_gps}")

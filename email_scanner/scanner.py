@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 import dns.resolver
@@ -95,7 +95,7 @@ async def scan_email(raw_email: str) -> EmailScanResult:
             risk_level=risk_level,
             flags=flags,
             score=score,
-            scanned_at=datetime.utcnow(),
+            scanned_at=datetime.now(timezone.utc),
         )
         _email_cache.set(email, result)
         return result
@@ -149,7 +149,7 @@ async def scan_email(raw_email: str) -> EmailScanResult:
         risk_level=risk_level,
         flags=flags,
         score=score,
-        scanned_at=datetime.utcnow(),
+        scanned_at=datetime.now(timezone.utc),
         from_cache=False,
     )
 

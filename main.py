@@ -4,7 +4,6 @@ import logging
 import os
 import signal
 import sys
-from typing import Optional
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -33,11 +32,6 @@ from middlewares.rate_limit import RateLimitMiddleware
 
 log = logging.getLogger(__name__)
 
-# Глобальные переменные для graceful shutdown
-_bot: Optional[Bot] = None
-_dp: Optional[Dispatcher] = None
-_shutdown_event: Optional[asyncio.Event] = None
-
 
 def _setup_logging() -> None:
     """Настройка логирования."""
@@ -55,85 +49,75 @@ def _setup_logging() -> None:
     )
 
 
-def _handle_signal(signum: int, frame) -> None:
-    """Обработчик сигналов для graceful shutdown."""
-    sig_name = signal.Signals(signum).name
-    log.info(f"Received signal {sig_name}, initiating graceful shutdown...")
-
-    if _shutdown_event:
-        _shutdown_event.set()
-
-
-async def _shutdown(bot: Bot, dp: Dispatcher) -> None:
-    """Корректное завершение работы бота."""
-    log.info("Shutting down bot...")
-
-    # Останавливаем polling
-    dp.shutdown()
-
-    # Закрываем сессию бота
-    await bot.session.close()
-
-    log.info("Bot shutdown complete")
-
-
 async def main() -> None:
-    global _bot, _dp, _shutdown_event
-
     _setup_logging()
 
-    _bot = Bot(
+    bot = Bot(
         token=settings.BOT_TOKEN,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
-    _dp = Dispatcher(storage=MemoryStorage())
-    _shutdown_event = asyncio.Event()
+    dp = Dispatcher(storage=MemoryStorage())
 
-    # Регистрируем обработчики сигналов
+    # Graceful shutdown — отменяем задачу polling по SIGINT/SIGTERM.
+    # aiogram сам корректно завершит polling через CancelledError.
+    loop = asyncio.get_running_loop()
+    polling_task: asyncio.Task | None = None
+
+    def _request_stop(sig_name: str) -> None:
+        log.info("Received %s, stopping polling...", sig_name)
+        if polling_task and not polling_task.done():
+            polling_task.cancel()
+
     if sys.platform != "win32":
-        loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, lambda s=sig: _handle_signal(s, None))
+            loop.add_signal_handler(sig, _request_stop, sig.name)
     else:
-        # Windows не поддерживает add_signal_handler
-        signal.signal(signal.SIGINT, _handle_signal)
-        signal.signal(signal.SIGTERM, _handle_signal)
+        # Windows не поддерживает add_signal_handler для asyncio.
+        # KeyboardInterrupt всё равно дойдёт до asyncio.run() и отменит таск.
+        def _win_handler(signum, _frame):
+            _request_stop(signal.Signals(signum).name)
+
+        signal.signal(signal.SIGINT, _win_handler)
+        signal.signal(signal.SIGTERM, _win_handler)
 
     # Мидлвары
-    _dp.update.middleware(LoggingMiddleware())
+    dp.update.middleware(LoggingMiddleware())
     # Rate limiter: 5 запросов подряд разрешены, потом минимум 3 сек между запросами
-    _dp.update.middleware(RateLimitMiddleware(
+    dp.update.middleware(RateLimitMiddleware(
         burst_limit=5,
         window_seconds=30,
-        min_interval_seconds=3
+        min_interval_seconds=3,
     ))
 
     # Роутеры
-    _dp.include_router(menu_router)
-    _dp.include_router(scan_router)
-    _dp.include_router(phone_router)
-    _dp.include_router(bin_router)
-    _dp.include_router(url_router)
-    _dp.include_router(email_router)
-    _dp.include_router(ip_router)
-    _dp.include_router(username_router)
-    _dp.include_router(wallet_router)
-    _dp.include_router(leak_router)
-    _dp.include_router(qr_router)        # QR FIRST — проверяет caption "/qr"
-    _dp.include_router(exif_router)      # EXIF SECOND — ловит все остальные фото
+    dp.include_router(menu_router)
+    dp.include_router(scan_router)
+    dp.include_router(phone_router)
+    dp.include_router(bin_router)
+    dp.include_router(url_router)
+    dp.include_router(email_router)
+    dp.include_router(ip_router)
+    dp.include_router(username_router)
+    dp.include_router(wallet_router)
+    dp.include_router(leak_router)
+    dp.include_router(qr_router)        # QR FIRST — проверяет caption "/qr"
+    dp.include_router(exif_router)      # EXIF SECOND — ловит все остальные фото
     # Auto-detect последним — catch-all для сообщений без команд
-    _dp.include_router(auto_detect_router)
+    dp.include_router(auto_detect_router)
 
-    await _bot.delete_webhook(drop_pending_updates=True)
+    await bot.delete_webhook(drop_pending_updates=True)
 
     log.info("Bot starting polling...")
 
     try:
-        await _dp.start_polling(_bot)
+        polling_task = asyncio.create_task(dp.start_polling(bot))
+        await polling_task
     except asyncio.CancelledError:
         log.info("Polling cancelled")
     finally:
-        await _shutdown(_bot, _dp)
+        log.info("Shutting down bot...")
+        await bot.session.close()
+        log.info("Bot shutdown complete")
 
 
 if __name__ == "__main__":

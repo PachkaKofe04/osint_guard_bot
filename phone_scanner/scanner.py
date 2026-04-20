@@ -5,7 +5,7 @@
 Опциональный апгрейд: Veriphone API (если VERIPHONE_API_KEY задан в .env).
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import phonenumbers
@@ -172,7 +172,7 @@ async def scan_phone(raw_phone: str) -> PhoneScanResult:
         flags=flags,
         score=score,
         confidence=phone_info.confidence,
-        scanned_at=datetime.utcnow(),
+        scanned_at=datetime.now(timezone.utc),
     )
 
     _phone_cache.set(normalized, result)

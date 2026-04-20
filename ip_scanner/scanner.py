@@ -4,7 +4,7 @@ import asyncio
 import ipaddress
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from ip_scanner.models import IpInfo, IpScanResult, OtxInfo
@@ -113,7 +113,7 @@ async def scan_ip(raw_ip: str) -> IpScanResult:
             risk_level=risk_level,
             flags=flags,
             score=score,
-            scanned_at=datetime.utcnow(),
+            scanned_at=datetime.now(timezone.utc),
         )
         _ip_cache.set(ip, result)
         return result
@@ -138,7 +138,7 @@ async def scan_ip(raw_ip: str) -> IpScanResult:
             risk_level=risk_level,
             flags=flags,
             score=score,
-            scanned_at=datetime.utcnow(),
+            scanned_at=datetime.now(timezone.utc),
         )
         _ip_cache.set(ip, result)
         return result
@@ -194,7 +194,7 @@ async def scan_ip(raw_ip: str) -> IpScanResult:
         risk_level=risk_level,
         flags=flags,
         score=score,
-        scanned_at=datetime.utcnow(),
+        scanned_at=datetime.now(timezone.utc),
         from_cache=False,
     )
 

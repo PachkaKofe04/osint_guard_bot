@@ -3,7 +3,7 @@ pydantic==2.*
 python-whois
 dnspython
 requests
-whois
+aiohttp
 pydantic-settings
 beautifulsoup4
 python-dotenv
@@ -21,5 +21,5 @@ pytest-asyncio>=0.23.0
 pytest-cov>=4.0.0
 
 
-holehe-1.61
-maigret-0.5.0
+holehe==1.61
+maigret==0.5.0

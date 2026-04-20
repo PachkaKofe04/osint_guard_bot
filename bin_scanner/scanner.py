@@ -1,6 +1,6 @@
 # bin_scanner/scanner.py
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import requests
@@ -119,7 +119,7 @@ def scan_bin(raw_bin: str) -> BinScanResult:
         risk_level=risk_level,
         flags=flags,
         score=score,
-        scanned_at=datetime.utcnow(),
+        scanned_at=datetime.now(timezone.utc),
     )
 
     # Сохраняем в кэш
