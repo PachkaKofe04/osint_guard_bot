@@ -20,8 +20,10 @@ from aiogram import Router, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
-from handlers.scan_flow import start_direction, run_direction
+from handlers.scan_flow import run_direction, start_direction, validation_error
+from keyboards.menu_kb import get_main_menu
 from scan_registry import DIRECTIONS, INPUT_IMAGE, Direction
+from utils.telegram_io import safe_answer
 
 log = logging.getLogger(__name__)
 
@@ -38,6 +40,14 @@ def _make_command_handler(direction: Direction):
         # Без аргумента или когда нужен файл - переводим в режим ожидания ввода
         if not argument or direction.input_kind == INPUT_IMAGE:
             await start_direction(message, direction, state)
+            return
+
+        # Та же проверка, что и в кнопочном сценарии: «/phone +» не должен
+        # доходить до сканера и получать оценку риска
+        problem = validation_error(direction, argument)
+        if problem:
+            await state.clear()
+            await safe_answer(message, problem, reply_markup=get_main_menu())
             return
 
         await state.clear()

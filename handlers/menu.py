@@ -168,3 +168,25 @@ async def cb_sources(callback: types.CallbackQuery) -> None:
     )
 
     await safe_edit(callback.message, "\n".join(lines), reply_markup=get_more_menu())
+
+
+@router.callback_query(F.data == "menu:fresh")
+async def cb_main_menu_fresh(callback: types.CallbackQuery, state: FSMContext) -> None:
+    """
+    Меню новым сообщением, поверх ничего не затирая.
+
+    Ставится под карточками результата. Обычная кнопка «В меню» делает
+    edit_text и заменяет текст отчёта меню: пользователь нажимал её и
+    терял только что полученный результат навсегда.
+    """
+    await state.clear()
+    await callback.answer()
+
+    # Кнопки с карточки убираем: повторное нажатие уже ничего не даст,
+    # а сам отчёт остаётся в переписке
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        log.debug("[menu] Клавиатура карточки уже снята")
+
+    await safe_answer(callback.message, MAIN_MENU_TEXT, reply_markup=get_main_menu())

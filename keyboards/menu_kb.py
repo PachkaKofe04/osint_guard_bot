@@ -28,7 +28,12 @@ from scan_registry import CATEGORIES, Direction, directions_of, get_category
 # Текст постоянной кнопки внизу экрана
 MENU_BUTTON_TEXT = "☰ Меню"
 
+# Навигация по экранам меню: перерисовывает сообщение на месте
 BACK_TO_MAIN = InlineKeyboardButton(text="☰ В меню", callback_data="menu:main")
+
+# То же самое, но новым сообщением. Ставится под карточки результата:
+# обычная кнопка заменяла бы текст отчёта меню, и отчёт исчезал навсегда.
+BACK_TO_MAIN_KEEP = InlineKeyboardButton(text="☰ В меню", callback_data="menu:fresh")
 
 
 def get_persistent_menu() -> ReplyKeyboardMarkup:
@@ -114,15 +119,19 @@ def get_result_menu(
 
     rows.append([
         InlineKeyboardButton(text="🔄 Ещё проверка", callback_data=f"again:{direction.key}"),
-        BACK_TO_MAIN,
+        BACK_TO_MAIN_KEEP,
     ])
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def get_back_menu() -> InlineKeyboardMarkup:
-    """Одна кнопка возврата в главное меню."""
-    return InlineKeyboardMarkup(inline_keyboard=[[BACK_TO_MAIN]])
+    """
+    Одна кнопка возврата в меню под сообщением с результатом.
+
+    Меню открывается новым сообщением, а не поверх отчёта.
+    """
+    return InlineKeyboardMarkup(inline_keyboard=[[BACK_TO_MAIN_KEEP]])
 
 
 def get_more_menu() -> InlineKeyboardMarkup:

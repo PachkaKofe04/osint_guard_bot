@@ -43,13 +43,14 @@ def split_text(text: str, limit: int = SAFE_CHUNK_LEN) -> List[str]:
     current = ""
 
     for line in text.split("\n"):
-        # Сама строка не влезает в лимит - рубим её на куски
+        # Сама строка не влезает в лимит - рубим её на куски по разделителям
         while len(line) > limit:
             if current:
                 chunks.append(current)
                 current = ""
-            chunks.append(line[:limit])
-            line = line[limit:]
+            piece = _cut_line(line, limit)
+            chunks.append(piece)
+            line = line[len(piece):].lstrip()
 
         candidate = line if not current else current + "\n" + line
         if len(candidate) > limit:
@@ -62,6 +63,27 @@ def split_text(text: str, limit: int = SAFE_CHUNK_LEN) -> List[str]:
         chunks.append(current)
 
     return chunks or [""]
+
+
+def _cut_line(line: str, limit: int) -> str:
+    """
+    Отрезает от длинной строки кусок не длиннее limit.
+
+    Рвать посреди слова некрасиво: в отчёте по домену список SAN разошёлся
+    по сообщениям как «*.m» и «etric.gstatic.com». Ищем ближайший разделитель
+    с конца и режем по нему.
+    """
+    if len(line) <= limit:
+        return line
+
+    window = line[:limit]
+    for separator in (", ", "; ", " ", ","):
+        position = window.rfind(separator)
+        # Слишком ранний разделитель дал бы почти пустой кусок
+        if position > limit // 2:
+            return window[:position + len(separator)].rstrip()
+
+    return window
 
 
 def _is_parse_error(exc: TelegramBadRequest) -> bool:

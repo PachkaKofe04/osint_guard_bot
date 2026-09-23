@@ -66,6 +66,13 @@ class Direction:
     scan: Callable[..., Awaitable]    # корутина скана
     format: Callable[[object], str]   # форматтер результата
     input_kind: str = INPUT_TEXT
+    # Какие типы ввода направление принимает (см. utils/input_detect).
+    # Пустой кортеж означает «проверять не нужно».
+    # Без этого в сканер проходил любой мусор: одиночный «+» доходил до
+    # телефонного сканера и получал осмысленную оценку 6/10.
+    accepts: Tuple[str, ...] = ()
+    # Как назвать ожидаемые данные в сообщении об ошибке
+    expects: str = ""
     examples: Tuple[str, ...] = ()
     monitorable: bool = False
     status: str = STATUS_OK
@@ -106,6 +113,8 @@ DIRECTIONS: Dict[str, Direction] = {
     for d in (
         Direction(
             key="domain",
+            accepts=("domain", "url"),
+            expects="адрес сайта",
             icon="🌍",
             title="Домен",
             category="web",
@@ -122,6 +131,8 @@ DIRECTIONS: Dict[str, Direction] = {
         ),
         Direction(
             key="url",
+            accepts=("url", "domain"),
+            expects="ссылку",
             icon="🔗",
             title="Ссылка",
             category="web",
@@ -137,6 +148,8 @@ DIRECTIONS: Dict[str, Direction] = {
         ),
         Direction(
             key="email",
+            accepts=("email",),
+            expects="email-адрес",
             icon="📧",
             title="Email",
             category="personal",
@@ -155,6 +168,8 @@ DIRECTIONS: Dict[str, Direction] = {
         ),
         Direction(
             key="phone",
+            accepts=("phone",),
+            expects="номер телефона",
             icon="📞",
             title="Телефон",
             category="personal",
@@ -167,6 +182,8 @@ DIRECTIONS: Dict[str, Direction] = {
         ),
         Direction(
             key="username",
+            accepts=("username", "ambiguous"),
+            expects="никнейм",
             icon="👤",
             title="Никнейм",
             category="personal",
@@ -182,6 +199,8 @@ DIRECTIONS: Dict[str, Direction] = {
         ),
         Direction(
             key="leak",
+            accepts=("email",),
+            expects="email-адрес",
             icon="🔓",
             title="Утечки",
             category="personal",
@@ -197,6 +216,8 @@ DIRECTIONS: Dict[str, Direction] = {
         ),
         Direction(
             key="bin",
+            accepts=("bin",),
+            expects="6-8 цифр номера карты",
             icon="💳",
             title="Карта (BIN)",
             category="finance",
@@ -213,6 +234,8 @@ DIRECTIONS: Dict[str, Direction] = {
         ),
         Direction(
             key="wallet",
+            accepts=("wallet",),
+            expects="адрес криптокошелька",
             icon="💰",
             title="Криптокошелёк",
             category="finance",
@@ -230,6 +253,8 @@ DIRECTIONS: Dict[str, Direction] = {
         ),
         Direction(
             key="ip",
+            accepts=("ip",),
+            expects="IP-адрес",
             icon="🌐",
             title="IP-адрес",
             category="network",

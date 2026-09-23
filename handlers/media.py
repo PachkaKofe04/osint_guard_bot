@@ -3,8 +3,12 @@
 Изображение, присланное без захода в меню.
 
 Быстрый путь для тех, кто просто кидает фото в чат:
-  - подпись «/qr» или ответ командой /qr на фото -> распознаём QR-код;
-  - всё остальное -> читаем EXIF.
+  - подпись «/qr» или ответ командой /qr на фото -> сразу распознаём QR-код;
+  - без подписи -> сначала ищем QR-код, и только если его нет, читаем EXIF.
+
+Порядок важен. Раньше всё без подписи безусловно уходило в EXIF, и человек,
+приславший очевидную картинку с QR-кодом, получал в ответ разбор метаданных
+и сообщение «GPS координаты отсутствуют».
 
 Сценарий через меню (кнопки «EXIF фотографии» и «QR-код») живёт в scan_flow,
 этот роутер подключается после него и ловит только то, что прошло мимо.
@@ -15,8 +19,11 @@ import logging
 
 from aiogram import F, Router, types
 
+from exif_scanner.scanner import scan_exif
 from handlers.scan_flow import run_direction
-from keyboards.menu_kb import get_main_menu
+from keyboards.menu_kb import get_main_menu, get_result_menu
+from qr_scanner.formatter import format_qr_result
+from qr_scanner.scanner import scan_qr
 from scan_registry import get_direction
 from utils.safe_html import esc
 from utils.telegram_io import safe_answer
@@ -82,6 +89,80 @@ async def _handle(message: types.Message, source: types.Message, key: str) -> No
     await run_direction(message, direction, payload[1], payload)
 
 
+async def _handle_auto(message: types.Message, source: types.Message) -> None:
+    """
+    Изображение прислали без указания, что с ним делать.
+
+    Сначала ищем QR-код и только потом читаем метаданные. Раньше всё
+    безусловно уходило в EXIF: пользователь присылал явную картинку с
+    QR-кодом, а в ответ получал «GPS координаты отсутствуют».
+
+    Файл скачивается один раз и прогоняется обоими сканерами, так что
+    лишнего обращения к Telegram не происходит.
+    """
+    try:
+        payload = await _download(source)
+    except Exception as exc:
+        log.error("[media] Не удалось скачать файл: %s", exc)
+        payload = None
+
+    if payload is None:
+        await safe_answer(
+            message,
+            "⚠️ Не получилось прочитать изображение.",
+            reply_markup=get_main_menu(),
+        )
+        return
+
+    data, filename = payload
+
+    qr_result = None
+    try:
+        qr_result = await scan_qr(data, filename)
+    except Exception as exc:
+        log.warning("[media] Проверка на QR не удалась: %s", exc)
+
+    if qr_result is not None and qr_result.found_qr:
+        exif_hint = await _exif_hint(data, filename)
+        text = format_qr_result(qr_result)
+        if exif_hint:
+            text += f"\n\n🖼 <i>{exif_hint}</i>"
+
+        direction = get_direction("qr")
+        await safe_answer(
+            message, text,
+            reply_markup=get_result_menu(direction) if direction else get_main_menu(),
+            disable_web_page_preview=True,
+        )
+        return
+
+    await _handle(message, source, "exif")
+
+
+async def _exif_hint(data: bytes, filename: str) -> str:
+    """Короткая сводка по метаданным, чтобы они не потерялись за QR-ответом."""
+    try:
+        result = await scan_exif(data, filename)
+    except Exception:
+        return ""
+
+    info = result.info
+    if info is None or not info.has_exif:
+        return ""
+
+    parts = []
+    if info.camera_model:
+        parts.append(f"снято на {info.camera_model}")
+    if info.has_gps:
+        parts.append("есть GPS-координаты")
+    if info.date_taken:
+        parts.append(f"дата {info.date_taken}")
+
+    if not parts:
+        return ""
+    return "В файле также нашлись метаданные: " + ", ".join(parts) + "."
+
+
 @router.message(F.reply_to_message.photo, F.text.startswith("/qr"))
 async def qr_by_reply(message: types.Message) -> None:
     """Команда /qr в ответ на сообщение с фото."""
@@ -95,19 +176,14 @@ async def qr_by_caption(message: types.Message) -> None:
 
 
 @router.message(F.photo)
-async def photo_to_exif(message: types.Message) -> None:
-    """
-    Фото без подписи. Разбираем метаданные.
-
-    Telegram при обычной отправке пересжимает картинку и вырезает EXIF,
-    поэтому сразу подсказываем, как прислать правильно.
-    """
-    await _handle(message, message, "exif")
+async def photo_without_caption(message: types.Message) -> None:
+    """Фото без подписи: сначала ищем QR-код, потом читаем метаданные."""
+    await _handle_auto(message, message)
 
 
 @router.message(F.document)
-async def document_to_exif(message: types.Message) -> None:
-    """Документ: если изображение - EXIF, иначе объясняем, что умеем."""
+async def document_without_caption(message: types.Message) -> None:
+    """Документ: если изображение - разбираем, иначе объясняем, что умеем."""
     document = message.document
 
     if not _is_image_document(document):
@@ -120,4 +196,4 @@ async def document_to_exif(message: types.Message) -> None:
         )
         return
 
-    await _handle(message, message, "exif")
+    await _handle_auto(message, message)

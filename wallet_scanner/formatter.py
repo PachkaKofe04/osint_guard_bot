@@ -116,10 +116,9 @@ def format_wallet_result(result: WalletScanResult) -> str:
             if info.is_contract:
                 name = f" ({esc(info.contract_name)})" if info.contract_name else ""
                 lines.append(f"📜 <b>Тип:</b> Смарт-контракт{name}")
+                lines.append("")
             elif info.is_smart_account:
-                lines.append(
-                    "📜 <b>Тип:</b> Кошелёк со смарт-аккаунтом (EIP-7702)"
-                )
+                lines.append("📜 <b>Тип:</b> Кошелёк со смарт-аккаунтом (EIP-7702)")
                 lines.append("")
 
     # Флаги рисков

@@ -31,6 +31,7 @@ from scan_registry import (
     get_direction,
 )
 from states.scan_states import ScanStates
+from utils.input_detect import detect_input_type
 from utils.safe_html import esc
 from utils.telegram_io import safe_answer, safe_edit
 
@@ -142,6 +143,47 @@ async def _download_image(message: types.Message) -> Optional[tuple]:
         return data.read(), message.document.file_name or "image"
 
     return None
+
+
+def validation_error(direction: Direction, value: str) -> Optional[str]:
+    """
+    Проверяет, подходит ли ввод направлению. None - всё в порядке.
+
+    Без этой проверки в сканер проходило что угодно: одиночный «+» доходил
+    до телефонного сканера и получал осмысленную оценку 6/10 со всеми
+    признаками настоящего анализа.
+    """
+    if not direction.accepts:
+        return None
+
+    detected, _normalized = detect_input_type(value)
+    if detected in direction.accepts:
+        return None
+
+    what = direction.expects or "подходящие данные"
+    lines = [f"❌ Это не похоже на {esc(what)}."]
+
+    # Подсказываем, на что ввод похож на самом деле: чаще всего
+    # пользователь просто перепутал раздел
+    looks_like = {
+        "domain": "адрес сайта",
+        "url": "ссылку",
+        "email": "email-адрес",
+        "phone": "номер телефона",
+        "ip": "IP-адрес",
+        "bin": "номер карты",
+        "wallet": "адрес криптокошелька",
+        "username": "никнейм",
+    }.get(detected)
+
+    if looks_like:
+        lines.append(f"Похоже на {looks_like} - выбери соответствующий раздел в меню.")
+
+    if direction.examples:
+        lines += ["", "<b>Ожидаю такой формат:</b>"]
+        lines += [f"<code>{esc(example)}</code>" for example in direction.examples]
+
+    return "\n".join(lines)
 
 
 async def run_direction(
@@ -258,8 +300,17 @@ async def on_text_input(message: types.Message, state: FSMContext) -> None:
         )
         return
 
+    value = (message.text or "").strip()
+
+    # Мусор в сканер не пускаем, но и из режима ввода не выбрасываем:
+    # пользователь поправит ввод и пришлёт снова
+    problem = validation_error(direction, value)
+    if problem:
+        await safe_answer(message, problem, reply_markup=get_cancel_menu())
+        return
+
     await state.clear()
-    await run_direction(message, direction, (message.text or "").strip(), None)
+    await run_direction(message, direction, value, None)
 
 
 @router.message(ScanStates.waiting_input, F.photo | F.document)

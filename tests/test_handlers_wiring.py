@@ -481,3 +481,194 @@ class TestStateDoesNotTrapUser:
 
         assert "не работаю" not in bot.texts()
         assert bot.calls[-1].reply_markup.inline_keyboard
+
+
+class TestInputValidation:
+    """
+    Мусор не должен доходить до сканера.
+
+    В кнопочном сценарии проверки не было вовсе: одиночный «+» доходил до
+    телефонного сканера и получал оценку «Средний риск 6/10» со всеми
+    признаками настоящего анализа - «неверная длина номера: 0 цифр».
+    """
+
+    @pytest.mark.parametrize("value", ["+", "абвгд", "???", "a"])
+    async def test_garbage_rejected_for_phone(self, dp, bot, value):
+        await feed(dp, bot, 1, callback_query=make_callback("scan:phone"))
+        bot.calls.clear()
+        await feed(dp, bot, 2, message=make_message(value))
+
+        assert "не похоже на номер телефона" in bot.texts()
+
+    async def test_user_stays_in_input_mode_after_mistake(self, dp, bot):
+        """Ошибка ввода не выбрасывает из режима: можно просто прислать снова."""
+        await feed(dp, bot, 1, callback_query=make_callback("scan:phone"))
+        bot.calls.clear()
+        await feed(dp, bot, 2, message=make_message("+"))
+
+        markup = bot.calls[-1].reply_markup
+        assert any(
+            b.callback_data == "cancel"
+            for row in markup.inline_keyboard for b in row
+        ), "после ошибки должна остаться кнопка отмены"
+
+    async def test_wrong_section_hints_the_right_one(self, dp, bot):
+        """Домен в разделе email: подсказываем, куда идти."""
+        await feed(dp, bot, 1, callback_query=make_callback("scan:email"))
+        bot.calls.clear()
+        await feed(dp, bot, 2, message=make_message("fonbet.ru"))
+
+        text = bot.texts()
+        assert "не похоже на email" in text
+        assert "адрес сайта" in text
+
+    async def test_valid_input_is_not_blocked(self, dp, bot):
+        from handlers.scan_flow import validation_error
+        from scan_registry import DIRECTIONS
+
+        valid = {
+            "phone": "+79991234567",
+            "email": "user@example.com",
+            "domain": "example.com",
+            "ip": "8.8.8.8",
+            "bin": "427229",
+            "username": "johndoe",
+            "wallet": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+        }
+        for key, value in valid.items():
+            assert validation_error(DIRECTIONS[key], value) is None, f"{key}: {value}"
+
+    async def test_command_with_garbage_rejected(self, dp, bot):
+        """«/phone +» должен вести себя так же, как кнопочный сценарий."""
+        await feed(dp, bot, 1, message=make_message("/phone +"))
+
+        assert "не похоже на номер телефона" in bot.texts()
+
+
+class TestResultCardSurvivesNavigation:
+    """
+    Карточка результата не должна стираться кнопкой навигации.
+
+    Кнопка «В меню» делала edit_text и заменяла текст отчёта главным меню:
+    пользователь получал разбор по утечкам, нажимал «В меню» и терял его
+    безвозвратно. Для экранов меню перерисовка на месте правильна, для
+    сообщений с данными - разрушительна.
+    """
+
+    @staticmethod
+    def _result_card_buttons():
+        from keyboards.menu_kb import get_back_menu, get_result_menu
+        from scan_registry import DIRECTIONS
+
+        markups = [get_back_menu(), get_result_menu(DIRECTIONS["ip"], value="8.8.8.8")]
+        return [
+            b.callback_data
+            for m in markups for row in m.inline_keyboard for b in row
+            if b.callback_data
+        ]
+
+    def test_cards_never_use_editing_menu_button(self):
+        """На карточке не должно быть кнопки, перерисовывающей сообщение."""
+        assert "menu:main" not in self._result_card_buttons()
+
+    def test_cards_offer_non_destructive_menu(self):
+        assert "menu:fresh" in self._result_card_buttons()
+
+    def test_navigation_screens_still_edit_in_place(self):
+        """В меню перерисовка на месте остаётся: там нечего терять."""
+        from keyboards.menu_kb import get_category_menu, get_more_menu
+
+        for markup in (get_category_menu("web"), get_more_menu()):
+            data = [
+                b.callback_data
+                for row in markup.inline_keyboard for b in row if b.callback_data
+            ]
+            assert "menu:main" in data
+
+    async def test_fresh_menu_sends_new_message(self, dp, bot):
+        await feed(dp, bot, 1, callback_query=make_callback("menu:fresh"))
+
+        names = bot.method_names()
+        assert "SendMessage" in names, "меню должно прийти новым сообщением"
+        assert "EditMessageText" not in names, "текст отчёта затирать нельзя"
+
+    async def test_fresh_menu_removes_card_buttons(self, dp, bot):
+        """Кнопки с карточки снимаются: повторное нажатие уже бессмысленно."""
+        await feed(dp, bot, 1, callback_query=make_callback("menu:fresh"))
+
+        assert "EditMessageReplyMarkup" in bot.method_names()
+
+
+class TestImageAutoDispatch:
+    """
+    Изображение без подписи: сначала QR, потом метаданные.
+
+    Раньше всё безусловно уходило в EXIF, и человек, приславший очевидную
+    картинку с QR-кодом, получал в ответ «GPS координаты отсутствуют».
+    """
+
+    qrcode = pytest.importorskip("qrcode")
+
+    @staticmethod
+    def _qr_png(text):
+        import io
+
+        import qrcode as qr_lib
+
+        code = qr_lib.QRCode(box_size=8, border=4)
+        code.add_data(text)
+        code.make(fit=True)
+        buffer = io.BytesIO()
+        code.make_image(fill_color="black", back_color="white").convert("RGB").save(
+            buffer, "PNG"
+        )
+        return buffer.getvalue()
+
+    @staticmethod
+    def _plain_jpeg():
+        import io
+
+        from PIL import Image
+
+        buffer = io.BytesIO()
+        Image.new("RGB", (800, 600), (120, 120, 120)).save(buffer, "JPEG")
+        return buffer.getvalue()
+
+    async def test_image_with_qr_is_decoded(self):
+        from qr_scanner.scanner import scan_qr
+
+        result = await scan_qr(self._qr_png("https://t.me/channel"), "IMG_0761.PNG")
+        assert result.found_qr
+        assert result.info.raw_data == "https://t.me/channel"
+
+    async def test_image_without_qr_falls_through(self):
+        """Обычное фото не должно выдавать ложный QR."""
+        from qr_scanner.scanner import scan_qr
+
+        result = await scan_qr(self._plain_jpeg(), "IMG_1129.jpg")
+        assert result.found_qr is False
+
+    async def test_metadata_hint_mentions_camera(self):
+        """Метаданные не должны потеряться за ответом про QR."""
+        import io
+
+        from PIL import Image
+
+        from handlers.media import _exif_hint
+
+        source = Image.open(io.BytesIO(self._qr_png("test")))
+        canvas = Image.new("RGB", (1600, 1600), (230, 230, 225))
+        canvas.paste(source, (400, 400))
+
+        exif = Image.Exif()
+        exif[0x0110] = "iPhone 13 mini"
+        buffer = io.BytesIO()
+        canvas.save(buffer, "JPEG", exif=exif.tobytes())
+
+        hint = await _exif_hint(buffer.getvalue(), "IMG_9000.jpg")
+        assert "iPhone 13 mini" in hint
+
+    async def test_no_hint_when_no_metadata(self):
+        from handlers.media import _exif_hint
+
+        assert await _exif_hint(self._plain_jpeg(), "plain.jpg") == ""

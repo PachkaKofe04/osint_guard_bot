@@ -5,6 +5,12 @@ from typing import List
 from domain_scanner.models import DomainScanResult
 from utils.risk_types import RiskLevel, RiskFlag, get_risk_emoji
 
+# Сколько SAN-доменов показывать в отчёте. У крупных сайтов их сотни,
+# и полный список занимал два сообщения, ничего не давая читателю.
+SAN_PREVIEW_LIMIT = 15
+# TXT-записи тоже разрастаются: у google.com это десяток строк верификации
+TXT_PREVIEW_LIMIT = 6
+
 
 def _risk_emoji(level: RiskLevel) -> str:
     return get_risk_emoji(0 if level == RiskLevel.LOW else 5 if level == RiskLevel.MEDIUM else 8)
@@ -36,7 +42,7 @@ def _score_comment(score: int) -> str:
         return "Умеренный риск: есть сомнительные признаки. Нужна дополнительная проверка."
     if score >= 2:
         return "Небольшой уровень риска: единичные слабые признаки."
-    return "Явных признаков недоброжелательности не выявлено."
+    return "Явных признаков недобросовестности не обнаружено."
 
 
 def _score_for_view(score: int) -> int:
@@ -109,7 +115,13 @@ def format_details(result: DomainScanResult) -> str:
         lines.append(f"  A: {esc(', '.join(d.a_records) or '-')}")
         lines.append(f"  NS: {esc(', '.join(d.ns_records) or '-')}")
         lines.append(f"  MX: {esc(', '.join(d.mx_records) or '-')}")
-        lines.append(f"  TXT: {esc(', '.join(d.txt_records) or '-')}")
+        if d.txt_records:
+            shown_txt = [t[:90] for t in d.txt_records[:TXT_PREVIEW_LIMIT]]
+            lines.append(f"  TXT: {esc(', '.join(shown_txt))}")
+            if len(d.txt_records) > TXT_PREVIEW_LIMIT:
+                lines.append(f"    ... и ещё {len(d.txt_records) - TXT_PREVIEW_LIMIT}")
+        else:
+            lines.append("  TXT: -")
     lines.append("")
 
     # IP / Hosting enrichment
@@ -148,7 +160,18 @@ def format_details(result: DomainScanResult) -> str:
         lines.append(f"  first_seen: {esc(s.first_seen or '-')}")
         lines.append(f"  last_seen: {esc(s.last_seen or '-')}")
         lines.append(f"  Выдающие центры: {esc(', '.join(s.issuers) or '-')}")
-        lines.append(f"  SAN-домены: {esc(', '.join(s.san_domains) or '-')}")
+        # Список SAN бывает огромным: у google.com их 518 штук. Целиком он
+        # занимал два сообщения и ничего не давал читателю - показываем начало
+        # и общее число.
+        if s.san_domains:
+            shown = s.san_domains[:SAN_PREVIEW_LIMIT]
+            lines.append(f"  SAN-домены ({len(s.san_domains)}): {esc(', '.join(shown))}")
+            if len(s.san_domains) > SAN_PREVIEW_LIMIT:
+                lines.append(
+                    f"    ... и ещё {len(s.san_domains) - SAN_PREVIEW_LIMIT}"
+                )
+        else:
+            lines.append("  SAN-домены: -")
     lines.append("")
 
     # HTTP
