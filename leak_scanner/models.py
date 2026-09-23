@@ -34,6 +34,9 @@ class LeakInfo(BaseModel):
     # Paste (публичные вставки)
     paste_count: int = 0
 
+    # Флаг: проверка невозможна без API ключа
+    no_api_key: bool = False
+
 
 class LeakScanResult(BaseModel):
     """Результат проверки на утечки."""

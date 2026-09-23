@@ -264,8 +264,15 @@ class TestCalculateEmailRisk:
         level, flags, score = calculate_email_risk(info)
         assert any(f.code == "FEW_BREACHES" for f in flags)
 
-    def test_no_breaches_trust(self):
-        """Нет утечек — доверие."""
+    def test_no_breaches_no_trust_flag(self):
+        """
+        Нет утечек — НЕ выдаём флаг доверия.
+
+        Раньше флаг `NO_BREACHES` выставлялся при `breach_count == 0`,
+        что вводило пользователя в заблуждение: HIBP не подключён,
+        поэтому «отсутствие утечек» ничего не означает.
+        См. tasks/lessons.md → "Misleading trust flags".
+        """
         info = EmailInfo(
             email="test@example.com",
             local_part="test",
@@ -275,7 +282,7 @@ class TestCalculateEmailRisk:
             breaches=[],
         )
         level, flags, score = calculate_email_risk(info)
-        assert any(f.code == "NO_BREACHES" for f in flags)
+        assert not any(f.code == "NO_BREACHES" for f in flags)
 
     def test_free_provider_low_risk(self):
         """Бесплатный провайдер — низкий риск."""

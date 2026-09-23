@@ -1,4 +1,4 @@
-# domain_scanner/ip_service.py
+# ip_scanner/ip_service.py
 import asyncio
 import logging
 from typing import Optional, Dict, Any

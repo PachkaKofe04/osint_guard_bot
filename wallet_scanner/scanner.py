@@ -24,6 +24,20 @@ BLOCKCHAIR_API = "https://api.blockchair.com/{chain}/dashboards/address/{address
 # CryptoScamDB — база скам-адресов (бесплатно, без ключа)
 CRYPTOSCAMDB_API = "https://api.cryptoscamdb.org/v1/check/{address}"
 
+# CoinGecko — курсы криптовалют к USD (бесплатно, без ключа)
+COINGECKO_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price"
+COINGECKO_IDS = {
+    "BTC":  "bitcoin",
+    "ETH":  "ethereum",
+    "LTC":  "litecoin",
+    "DOGE": "dogecoin",
+    "TRX":  "tron",
+    "XRP":  "ripple",
+    "SOL":  "solana",
+    "XMR":  "monero",
+    "BCH":  "bitcoin-cash",
+}
+
 # Маппинг валюта → название цепочки в Blockchair
 BLOCKCHAIR_CHAINS = {
     "BTC":  "bitcoin",
@@ -50,18 +64,29 @@ BALANCE_DIVISORS = {
     "BCH":  Decimal(10 ** 8),   # satoshi
 }
 
-# Известные скам-адреса
-KNOWN_SCAM_ADDRESSES = {
-    "1Ai52Uw6usjhpcDrwSmkUvjuqLpcznUuyF": ["phishing", "fake_giveaway"],
-    "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh": ["scam", "twitter_hack"],
-    "0x000000000000000000000000000000000000dead": ["burn_address"],
-}
 
-# Известные биржевые адреса
-KNOWN_EXCHANGES = {
-    "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": "Satoshi (Genesis Block)",
-    "3FZbgi29cpjq2GjdwV8eyHuJJnkLtktZc5": "Bitfinex",
-}
+
+async def fetch_coin_price_usd(currency: str) -> Optional[Decimal]:
+    """Получает курс криптовалюты в USD через CoinGecko."""
+    coin_id = COINGECKO_IDS.get(currency)
+    if not coin_id:
+        return None
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                COINGECKO_PRICE_URL,
+                params={"ids": coin_id, "vs_currencies": "usd"},
+                timeout=aiohttp.ClientTimeout(total=5),
+                headers={"User-Agent": "OSINT-Bot/1.0"},
+            ) as response:
+                if response.status != 200:
+                    return None
+                data = await response.json()
+                price = data.get(coin_id, {}).get("usd")
+                return Decimal(str(price)) if price is not None else None
+    except Exception as e:
+        log.debug(f"[Wallet] CoinGecko price error for {currency}: {e}")
+        return None
 
 
 async def fetch_blockchair_info(address: str, currency: str) -> Optional[dict]:
@@ -212,20 +237,19 @@ async def scan_wallet(raw_address: str) -> WalletScanResult:
         _wallet_cache.set(address, result)
         return result
 
-    # Проверяем на известные скам-адреса
-    is_scam = address in KNOWN_SCAM_ADDRESSES
-    scam_labels = KNOWN_SCAM_ADDRESSES.get(address, [])
+    is_scam = False
+    scam_labels: list = []
+    exchange_name = None
 
-    # Проверяем на известные биржи
-    exchange_name = KNOWN_EXCHANGES.get(address)
-
-    # Параллельно: данные из блокчейна + проверка скама
-    bc_data, scamdb_labels = await asyncio.gather(
+    # Параллельно: данные из блокчейна + проверка скама + курс USD
+    bc_data, scamdb_labels, coin_price_usd = await asyncio.gather(
         fetch_blockchair_info(address, currency),
         fetch_cryptoscamdb(address),
+        fetch_coin_price_usd(currency),
     )
 
     balance = None
+    balance_usd = None
     tx_count = None
     first_seen = None
     last_seen = None
@@ -238,6 +262,9 @@ async def scan_wallet(raw_address: str) -> WalletScanResult:
         last_seen = bc_data.get("last_seen")
         is_contract = bc_data.get("is_contract", False)
 
+    if balance is not None and coin_price_usd is not None:
+        balance_usd = (balance * coin_price_usd).quantize(Decimal("0.01"))
+
     # Объединяем скам-метки из локального списка и CryptoScamDB
     if scamdb_labels:
         is_scam = True
@@ -249,6 +276,7 @@ async def scan_wallet(raw_address: str) -> WalletScanResult:
         currency=currency,
         is_valid=True,
         balance=balance,
+        balance_usd=balance_usd,
         tx_count=tx_count,
         first_seen=first_seen,
         last_seen=last_seen,

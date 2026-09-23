@@ -74,10 +74,21 @@ BRAND_KEYWORDS_FOR_PHISHING_DETECTION = {
 }
 
 
+# Составные TLD (второй уровень + TLD) — .co.uk, .com.au и т.д.
+# Нужны чтобы правильно извлекать домен: example.co.uk → example (не co)
+_COMPOUND_TLDS = {
+    "co.uk", "co.nz", "co.in", "co.jp", "co.za", "co.id", "co.ke",
+    "com.au", "com.br", "com.cn", "com.mx", "com.sg", "com.ar", "com.tr",
+    "com.ua", "com.hk", "com.ph", "com.my", "com.ng",
+    "net.au", "net.nz", "net.uk", "org.uk", "org.au", "me.uk",
+    "ac.uk", "gov.uk", "edu.au", "gov.au", "ltd.uk",
+}
+
+
 def _extract_base_domain(domain: str) -> str:
     """
-    Извлекает базовый домен (domain.tld) из полного имени.
-    Например: www.sub.example.com -> example.com
+    Извлекает базовый домен (sld.tld) из полного имени.
+    Корректно обрабатывает составные TLD: example.co.uk → example.co.uk
     """
     domain = domain.lower().strip()
     if domain.startswith("*."):
@@ -86,9 +97,11 @@ def _extract_base_domain(domain: str) -> str:
         domain = domain[4:]
 
     parts = domain.split(".")
+    if len(parts) >= 3:
+        compound = ".".join(parts[-2:])
+        if compound in _COMPOUND_TLDS:
+            return ".".join(parts[-3:])
     if len(parts) >= 2:
-        # Для большинства TLD берём последние 2 части
-        # TODO: добавить поддержку .co.uk, .com.ru и т.д.
         return ".".join(parts[-2:])
     return domain
 

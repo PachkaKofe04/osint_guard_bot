@@ -10,7 +10,9 @@ from typing import Optional
 from ip_scanner.models import IpInfo, IpScanResult, OtxInfo
 from ip_scanner.risk_engine import calculate_ip_risk
 from ip_scanner.ip_service import fetch_ip_profile_async
+from ip_scanner.abuseipdb_service import check_abuseipdb
 from services.otx_service import check_ip_reputation
+from config import settings
 from utils.cache import TTLCache
 
 log = logging.getLogger(__name__)
@@ -143,10 +145,11 @@ async def scan_ip(raw_ip: str) -> IpScanResult:
         _ip_cache.set(ip, result)
         return result
 
-    # Получаем данные от ip-api.com и OTX параллельно
-    api_data, otx_data = await asyncio.gather(
+    # Получаем данные от ip-api.com, OTX и AbuseIPDB параллельно
+    api_data, otx_data, abuse_data = await asyncio.gather(
         fetch_ip_profile_async(ip),
         asyncio.to_thread(check_ip_reputation, ip),
+        check_abuseipdb(ip, settings.ABUSEIPDB_API_KEY or ""),
     )
 
     # Строим OtxInfo если данные получены
@@ -182,6 +185,11 @@ async def scan_ip(raw_ip: str) -> IpScanResult:
             # Тип подключения
             is_proxy=api_data.get("proxy", False),
             is_hosting=api_data.get("hosting", False),
+            # AbuseIPDB репутация
+            abuse_score=abuse_data.abuse_score if abuse_data else None,
+            is_tor=abuse_data.is_tor if abuse_data else False,
+            is_blacklisted=(abuse_data.abuse_score or 0) >= 75 if abuse_data else False,
+            threat_types=[abuse_data.usage_type] if (abuse_data and abuse_data.usage_type) else [],
         )
 
     # Рассчитываем риск

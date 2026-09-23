@@ -1,7 +1,6 @@
 # leak_scanner/scanner.py
 """Основной модуль проверки утечек."""
 import asyncio
-import hashlib
 import logging
 from datetime import datetime, timezone
 from typing import Optional, List
@@ -17,44 +16,7 @@ log = logging.getLogger(__name__)
 # Кэш для результатов
 _leak_cache: TTLCache[LeakScanResult] = TTLCache(ttl_seconds=3600, max_size=512)
 
-# HIBP API (требует API ключ для полноценной работы)
 HIBP_API_URL = "https://haveibeenpwned.com/api/v3"
-
-# Известные крупные утечки (для демонстрации без API)
-KNOWN_BREACHES_DB = {
-    "linkedin": BreachInfo(
-        name="LinkedIn",
-        title="LinkedIn 2012",
-        domain="linkedin.com",
-        breach_date="2012-05-05",
-        pwn_count=164611595,
-        description="В 2012 году LinkedIn подвергся утечке данных",
-        data_classes=["Emails", "Passwords"],
-    ),
-    "adobe": BreachInfo(
-        name="Adobe",
-        title="Adobe 2013",
-        domain="adobe.com",
-        breach_date="2013-10-04",
-        pwn_count=152445165,
-        description="В 2013 году Adobe подвергся масштабной утечке",
-        data_classes=["Emails", "Passwords", "Password hints"],
-    ),
-    "dropbox": BreachInfo(
-        name="Dropbox",
-        title="Dropbox 2012",
-        domain="dropbox.com",
-        breach_date="2012-07-01",
-        pwn_count=68648009,
-        description="В 2012 году Dropbox подвергся утечке данных",
-        data_classes=["Emails", "Passwords"],
-    ),
-}
-
-
-def _hash_email(email: str) -> str:
-    """Хэширует email для демонстрации."""
-    return hashlib.sha256(email.lower().encode()).hexdigest()[:16]
 
 
 async def check_hibp_api(email: str, api_key: Optional[str] = None) -> Optional[List[dict]]:
@@ -86,30 +48,15 @@ async def check_hibp_api(email: str, api_key: Optional[str] = None) -> Optional[
     return None
 
 
-async def check_leaks_demo(email: str) -> LeakInfo:
-    """
-    Демо-проверка утечек (без API).
-    В реальности нужен HIBP API ключ.
-    """
-    # Для демонстрации — симулируем проверку
-    # В реальном проекте здесь был бы вызов HIBP API
-
-    email_lower = email.lower()
-    breaches: List[BreachInfo] = []
-
-    # Проверяем домен email на известные утечки
-    domain = email_lower.split("@")[-1] if "@" in email_lower else ""
-
-    # Симуляция: если email содержит test/demo — показываем утечки
-    if any(x in email_lower for x in ["test", "demo", "example"]):
-        breaches = list(KNOWN_BREACHES_DB.values())[:2]
-
+def _make_no_api_key_info(query: str) -> LeakInfo:
+    """Возвращает LeakInfo-заглушку когда HIBP API ключ не настроен."""
     return LeakInfo(
-        query=email,
+        query=query,
         query_type="email",
-        is_pwned=len(breaches) > 0,
-        breach_count=len(breaches),
-        breaches=breaches,
+        is_pwned=False,
+        breach_count=0,
+        breaches=[],
+        no_api_key=True,
     )
 
 
@@ -159,10 +106,11 @@ async def scan_leaks(query: str, api_key: Optional[str] = None) -> LeakScanResul
                 breaches=breaches,
             )
         else:
-            info = await check_leaks_demo(query)
+            # API вернул ошибку — не удалось проверить
+            info = _make_no_api_key_info(query)
     else:
-        # Демо-режим без API
-        info = await check_leaks_demo(query)
+        # Нет API ключа — честно сообщаем
+        info = _make_no_api_key_info(query)
 
     # Рассчитываем риск
     risk_level, flags, score = calculate_leak_risk(info)

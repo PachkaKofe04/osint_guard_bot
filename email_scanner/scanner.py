@@ -14,6 +14,7 @@ from email_scanner.risk_engine import calculate_email_risk
 from utils.cache import TTLCache
 from services.gravatar_service import check_gravatar_exists
 from services.holehe_service import check_holehe
+from services.whois_service import fetch_whois_sync
 
 log = logging.getLogger(__name__)
 
@@ -57,6 +58,23 @@ def fetch_mx_records_sync(domain: str) -> List[str]:
 async def fetch_mx_records(domain: str) -> List[str]:
     """Асинхронная обёртка для получения MX записей."""
     return await asyncio.to_thread(fetch_mx_records_sync, domain)
+
+
+async def fetch_domain_age(domain: str) -> Optional[int]:
+    """Возвращает возраст домена в днях через WHOIS. None если недоступно."""
+    try:
+        whois_info = await asyncio.wait_for(
+            asyncio.to_thread(fetch_whois_sync, domain),
+            timeout=5.0,
+        )
+        if whois_info and whois_info.creation_date:
+            cd = whois_info.creation_date
+            if cd.tzinfo is None:
+                cd = cd.replace(tzinfo=timezone.utc)
+            return (datetime.now(timezone.utc) - cd).days
+    except (asyncio.TimeoutError, Exception) as e:
+        log.debug(f"[Email Scanner] Domain age lookup failed for {domain}: {e}")
+    return None
 
 
 async def scan_email(raw_email: str) -> EmailScanResult:
@@ -103,11 +121,12 @@ async def scan_email(raw_email: str) -> EmailScanResult:
     # Парсим email
     local_part, domain = parse_email(email)
 
-    # Параллельно получаем MX записи, Gravatar и Holehe
-    mx_records, gravatar_url, holehe_hits = await asyncio.gather(
+    # Параллельно получаем MX записи, Gravatar, Holehe и возраст домена
+    mx_records, gravatar_url, holehe_hits, domain_age_days = await asyncio.gather(
         fetch_mx_records(domain),
         check_gravatar_exists(email),
         check_holehe(email),
+        fetch_domain_age(domain),
     )
     has_mx = len(mx_records) > 0
 
@@ -131,12 +150,10 @@ async def scan_email(raw_email: str) -> EmailScanResult:
         is_free_provider=is_free,
         is_corporate=is_corporate,
         provider_name=provider if provider else None,
-        # HIBP интеграция — пока без API (требует ключ)
         breach_count=0,
         breaches=[],
-        # Gravatar
+        domain_age_days=domain_age_days,
         gravatar_url=gravatar_url,
-        # Holehe
         holehe_hits=holehe_hits,
     )
 

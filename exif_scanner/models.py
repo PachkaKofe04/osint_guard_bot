@@ -18,6 +18,7 @@ class ExifInfo(BaseModel):
     """Информация EXIF из изображения."""
     # Основная информация
     has_exif: bool = False
+    open_failed: bool = False  # True если файл вообще не удалось открыть
     file_size: Optional[int] = None
     image_width: Optional[int] = None
     image_height: Optional[int] = None
