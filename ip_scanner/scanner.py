@@ -13,6 +13,7 @@ from ip_scanner.ip_service import fetch_ip_profile_async
 from ip_scanner.abuseipdb_service import check_abuseipdb
 from services.otx_service import check_ip_reputation
 from config import settings
+from services.threat_feeds import feeds, to_verdict
 from utils.cache import TTLCache
 
 log = logging.getLogger(__name__)
@@ -191,6 +192,9 @@ async def scan_ip(raw_ip: str) -> IpScanResult:
             is_blacklisted=(abuse_data.abuse_score or 0) >= 75 if abuse_data else False,
             threat_types=[abuse_data.usage_type] if (abuse_data and abuse_data.usage_type) else [],
         )
+
+    # Проверка по локальным базам: C2-серверы ботнетов, вредоносные хосты
+    info.threats = to_verdict(feeds.lookup_host(ip))
 
     # Рассчитываем риск
     risk_level, flags, score = calculate_ip_risk(info, otx)

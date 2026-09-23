@@ -15,6 +15,7 @@ from domain_scanner.models import (
 )
 from domain_scanner.risk_engine import calculate_risk
 from ip_scanner.ip_service import fetch_ip_profile_async
+from services.threat_feeds import feeds, to_verdict
 from utils.cache import TTLCache
 from utils.domain_normalizer import normalize_domain
 from services.whois_service import fetch_whois
@@ -112,7 +113,12 @@ async def scan_domain(raw_domain: str) -> DomainScanResult:
             malware_samples=otx_data.get("malware_samples", 0),
         )
 
-    risk_level, flags, score = calculate_risk(whois, dns, ssl, http, ip_profiles, otx)
+    # Проверка по локальным базам угроз: фишинг, раздача малвари, C2
+    threats = to_verdict(feeds.lookup_host(normalized))
+
+    risk_level, flags, score = calculate_risk(
+        whois, dns, ssl, http, ip_profiles, otx, threats
+    )
 
     result = DomainScanResult(
         domain=raw_domain,
@@ -126,6 +132,7 @@ async def scan_domain(raw_domain: str) -> DomainScanResult:
         http=http,
         ip_profiles=ip_profiles,
         otx=otx,
+        threats=threats,
         scanned_at=datetime.now(timezone.utc),
         from_cache=False,
     )

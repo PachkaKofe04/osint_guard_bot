@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Optional, Dict
 
 from pydantic import BaseModel
-from utils.risk_types import RiskLevel, RiskFlag
+from utils.risk_types import RiskLevel, RiskFlag, ThreatVerdict
 
 
 class WhoisInfo(BaseModel):
@@ -84,6 +84,9 @@ class DomainScanResult(BaseModel):
 
     ip_profiles: List[IpProfile] = []
     otx: Optional[OtxInfo] = None
+
+    # Проверка по локальным базам угроз (фишинг, малварь, C2)
+    threats: Optional[ThreatVerdict] = None
 
     scanned_at: datetime
     from_cache: bool = False

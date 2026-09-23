@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from url_scanner.models import UrlInfo
 from utils.risk_types import RiskFlag, RiskLevel, RiskWeight
 from utils.risk_scoring import add_risk_flag, calculate_risk_score
+from utils.threat_flags import add_threat_flags
 
 
 # Подозрительные TLD
@@ -76,6 +77,10 @@ def calculate_url_risk(info: Optional[UrlInfo]) -> Tuple[RiskLevel, List[RiskFla
         )
         risk_score = calculate_risk_score(flags)
         return risk_score.level, flags, risk_score.score
+
+    # Находка в базах угроз важнее любых структурных признаков:
+    # это факт, а не косвенная примета вроде длины адреса
+    add_threat_flags(flags, info.threats)
 
     # VirusTotal результаты
     if info.vt_malicious > 0:

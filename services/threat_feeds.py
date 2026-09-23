@@ -181,6 +181,9 @@ class ThreatFeeds:
         self._phishing_domains: Set[str] = set()
         # C2-серверы ботнетов
         self._c2_ips: Dict[str, ThreatInfo] = {}
+        # Сколько вредоносных URL размещено на хосте. Не обвинение хоста:
+        # на крупных площадках такие ссылки есть всегда
+        self._urlhaus_host_counts: Dict[str, int] = {}
 
     # --- состояние -------------------------------------------------------
 
@@ -197,6 +200,7 @@ class ThreatFeeds:
             "scam_addresses": len(self._scam_addresses),
             "phishing_domains": len(self._phishing_domains),
             "c2_ips": len(self._c2_ips),
+            "hosts_with_bad_urls": len(self._urlhaus_host_counts),
             "feeds": {
                 name: {
                     "fresh": self._is_fresh(name),
@@ -223,13 +227,23 @@ class ThreatFeeds:
         if direct:
             hits.append(direct)
 
-        host_result = self.lookup_host(urlparse(
-            url if "://" in url else f"http://{url}"
-        ).hostname or url)
+        # Хост проверяем по доменным индикаторам (ThreatFox, ScamSniffer, Feodo),
+        # но не по факту «на этом хосте когда-то лежал вредоносный файл»
+        host = urlparse(url if "://" in url else f"http://{url}").hostname or url
+        host_result = self.lookup_host(host)
         if host_result.is_hit:
             hits.extend(host_result.hits)
 
         return LookupResult(Verdict.HIT if hits else Verdict.CLEAN, hits)
+
+    def malicious_urls_on_host(self, host: str) -> int:
+        """
+        Сколько вредоносных URL зафиксировано на хосте.
+
+        Справочный показатель для отчёта. Сам по себе не делает хост
+        вредоносным: у GitHub и Google Drive он всегда ненулевой.
+        """
+        return self._urlhaus_host_counts.get(_normalize_host(host), 0)
 
     def lookup_host(self, host: str) -> LookupResult:
         """Числится ли домен или IP среди вредоносных."""
@@ -392,31 +406,41 @@ class ThreatFeeds:
     # --- парсеры ---------------------------------------------------------
 
     def _parse_urlhaus(self, payload: bytes) -> None:
-        """CSV: id,dateadded,url,url_status,last_online,threat,tags,link,reporter."""
+        """
+        CSV: id,dateadded,url,url_status,last_online,threat,tags,link,reporter.
+
+        Хосты из URLhaus намеренно НЕ попадают в список вредоносных.
+        В базе полно ссылок вида github.com/user/repo/releases/malware.exe
+        или drive.google.com/..., и пометка хоста целиком превращала
+        github.com, Google Drive, Dropbox и Discord во «вредоносные».
+        Проверено: до этой правки github.com получал 10/10 «Высокий риск».
+
+        Вместо этого считаем, сколько вредоносных URL размещено на хосте.
+        Это честный контекст («на площадке зафиксировано N вредоносных ссылок»),
+        а не обвинение самой площадки.
+        """
         text = payload.decode("utf-8", "ignore")
         rows = [line for line in text.splitlines() if line and not line.startswith("#")]
 
         urls: Dict[str, ThreatInfo] = {}
-        hosts: Dict[str, ThreatInfo] = {}
+        host_counts: Dict[str, int] = {}
 
         for row in csv.reader(rows):
             if len(row) < 7:
                 continue
             _id, date_added, url, _status, _last, threat, tags = row[:7]
-            info = ThreatInfo(
+            urls[_normalize_url(url)] = ThreatInfo(
                 source="URLhaus",
                 threat_type=threat or None,
                 tags=_clean_tags(tags),
                 first_seen=date_added or None,
             )
-            urls[_normalize_url(url)] = info
             host = _normalize_host(url)
             if host:
-                hosts.setdefault(host, info)
+                host_counts[host] = host_counts.get(host, 0) + 1
 
         self._bad_urls = urls
-        # Хосты из URLhaus дополняют уже известные из ThreatFox, не затирая их
-        self._bad_hosts.update(hosts)
+        self._urlhaus_host_counts = host_counts
 
     def _parse_threatfox(self, payload: bytes) -> None:
         """JSON: {id: [ {ioc_value, ioc_type, threat_type, malware_printable, ...} ]}."""
@@ -507,3 +531,35 @@ async def feeds_loop(store: Optional[ThreatFeeds] = None) -> None:
         except Exception as exc:
             log.error("[feeds] Обновление сорвалось: %s", exc, exc_info=True)
         await asyncio.sleep(REFRESH_INTERVAL_SECONDS)
+
+
+def to_verdict(result: LookupResult) -> "ThreatVerdict":
+    """
+    Переводит внутренний LookupResult в модель для отчётов сканеров.
+
+    Держится здесь, а не в каждом сканере, чтобы трёхзначность вердикта
+    не потерялась при переносе: checked обязан доехать до форматтера.
+    """
+    from utils.risk_types import ThreatVerdict
+
+    if result.verdict is Verdict.UNAVAILABLE:
+        return ThreatVerdict(checked=False, found=False)
+
+    if not result.hits:
+        return ThreatVerdict(checked=True, found=False)
+
+    # Берём самую содержательную находку: с названием малвари информативнее
+    best = max(result.hits, key=lambda h: (bool(h.malware), h.confidence or 0))
+    tags: List[str] = []
+    for hit in result.hits:
+        tags.extend(hit.tags)
+
+    return ThreatVerdict(
+        checked=True,
+        found=True,
+        sources=sorted({h.source for h in result.hits}),
+        threat_type=best.threat_type,
+        malware=best.malware,
+        confidence=best.confidence,
+        tags=sorted(set(tags))[:8],
+    )

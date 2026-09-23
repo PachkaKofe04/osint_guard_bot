@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
 
-from utils.risk_types import RiskFlag, RiskLevel
+from utils.risk_types import RiskFlag, RiskLevel, ThreatVerdict
 
 
 class UrlExpandResult(BaseModel):
@@ -38,6 +38,9 @@ class UrlInfo(BaseModel):
     domain: Optional[str] = None
     is_shortened: bool = False
     shortener_service: Optional[str] = None
+
+    # Проверка по локальным базам угроз (URLhaus, ThreatFox, ScamSniffer)
+    threats: Optional[ThreatVerdict] = None
 
     # VirusTotal
     vt_malicious: int = 0

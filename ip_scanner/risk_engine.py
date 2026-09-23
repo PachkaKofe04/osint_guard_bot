@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple
 from ip_scanner.models import IpInfo, OtxInfo
 from utils.risk_types import RiskFlag, RiskLevel
 from utils.risk_scoring import add_risk_flag, calculate_risk_score
+from utils.threat_flags import add_threat_flags
 
 
 # Страны повышенного риска (по фишингу и мошенничеству)
@@ -71,6 +72,9 @@ def calculate_ip_risk(info: Optional[IpInfo], otx: Optional[OtxInfo] = None) -> 
         )
         risk_score = calculate_risk_score(flags)
         return risk_score.level, flags, risk_score.score
+
+    # Находка в базах угроз: C2-серверы ботнетов, раздача малвари
+    add_threat_flags(flags, info.threats)
 
     # Невалидный IP
     if not info.is_valid:

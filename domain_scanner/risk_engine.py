@@ -12,6 +12,8 @@ from domain_scanner.models import (
 )
 from utils.risk_types import RiskFlag, RiskLevel, RiskWeight
 from utils.risk_scoring import add_risk_flag, calculate_risk_score
+from utils.risk_types import ThreatVerdict
+from utils.threat_flags import add_threat_flags
 
 HIGH_RISK_COUNTRIES = {"NG", "PK", "GH", "IR", "KP", "SY"}
 
@@ -140,9 +142,13 @@ def calculate_risk(
     http: Optional[HttpInfo],
     ip_profiles: Optional[List[IpProfile]] = None,
     otx: Optional[OtxInfo] = None,
+    threats: Optional["ThreatVerdict"] = None,
 ) -> Tuple[RiskLevel, List[RiskFlag], int]:
 
     flags: List[RiskFlag] = []
+
+    # Находка в базах угроз - самый весомый сигнал, ставим его первым
+    add_threat_flags(flags, threats)
     now = datetime.now(timezone.utc)
     ip_profiles = ip_profiles or []
 

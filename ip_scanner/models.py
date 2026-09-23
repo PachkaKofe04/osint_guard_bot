@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
 
-from utils.risk_types import RiskFlag, RiskLevel
+from utils.risk_types import RiskFlag, RiskLevel, ThreatVerdict
 
 
 class OtxInfo(BaseModel):
@@ -51,6 +51,9 @@ class IpInfo(BaseModel):
     is_blacklisted: bool = False
     abuse_score: Optional[int] = None  # 0-100
     threat_types: List[str] = []
+
+    # Проверка по локальным базам угроз: C2-серверы, вредоносные хосты
+    threats: Optional[ThreatVerdict] = None
 
 
 class IpScanResult(BaseModel):

@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from url_scanner.models import UrlInfo, UrlScanResult
 from url_scanner.expander import expand_url, is_shortened_url
 from url_scanner.risk_engine import calculate_url_risk, analyze_url_structure
+from services.threat_feeds import feeds, to_verdict
 from utils.cache import TTLCache
 
 log = logging.getLogger(__name__)
@@ -67,6 +68,9 @@ async def scan_url(raw_url: str) -> UrlScanResult:
     except Exception:
         domain = None
 
+    # Проверка по базам угроз идёт по памяти, в сеть не ходит
+    threats = to_verdict(feeds.lookup_url(final_url))
+
     # Собираем информацию
     info = UrlInfo(
         original_url=raw_url,
@@ -80,6 +84,7 @@ async def scan_url(raw_url: str) -> UrlScanResult:
         has_suspicious_tld=structure["has_suspicious_tld"],
         has_many_subdomains=structure["has_many_subdomains"],
         url_length=structure["url_length"],
+        threats=threats,
         # VirusTotal пока не интегрирован - добавим позже
         vt_malicious=0,
         vt_suspicious=0,

@@ -135,9 +135,17 @@ class TestMaliciousUrls:
         assert result.is_hit
         assert any(h.threat_type == "malware_download" for h in result.hits)
 
-    def test_host_of_known_url_also_flagged(self, loaded_feeds):
-        """Если с хоста раздают малварь, подозрителен весь хост."""
-        assert loaded_feeds.lookup_host("evil.example").is_hit
+    def test_host_of_known_url_is_not_flagged(self, loaded_feeds):
+        """
+        Хост не становится вредоносным из-за одной ссылки на нём.
+
+        Этот тест раньше утверждал обратное и закреплял ошибку: по такой
+        логике github.com и drive.google.com попадали во вредоносные,
+        потому что кто-то выложил там файл. Вредоносной считается
+        конкретная ссылка, а хост - только по доменным индикаторам.
+        """
+        assert loaded_feeds.lookup_host("evil.example").verdict is Verdict.CLEAN
+        assert loaded_feeds.lookup_url("http://evil.example/bin.sh").is_hit
 
     def test_clean_url(self, loaded_feeds):
         assert loaded_feeds.lookup_url("https://google.com/").verdict is Verdict.CLEAN
@@ -234,3 +242,61 @@ class TestStats:
         assert stats["phishing_domains"] == 2
         assert stats["c2_ips"] == 1
         assert stats["feeds"]["URLhaus"]["fresh"] is True
+
+
+class TestHostingPlatformsNotFlagged:
+    """
+    Крупные площадки не должны попадать во вредоносные из-за чужих файлов.
+
+    URLhaus полон ссылок вида github.com/user/repo/releases/malware.exe и
+    drive.google.com/... Если помечать хост целиком, вредоносными становятся
+    GitHub, Google Drive, Dropbox и Discord. Проверено на живых данных:
+    до исправления github.com получал 10/10 «Высокий риск».
+    """
+
+    URLHAUS_WITH_PLATFORMS = (
+        b"# id,dateadded,url,url_status,last_online,threat,tags,link,reporter\n"
+        b'"1","2026-09-23 05:32:14","https://github.com/evil/repo/releases/x.exe",'
+        b'"online","2026-09-23","malware_download","exe","https://urlhaus.abuse.ch/url/1/","t"\n'
+        b'"2","2026-09-23 05:33:00","http://203.0.113.9/bin.sh",'
+        b'"online","2026-09-23","malware_download","elf","https://urlhaus.abuse.ch/url/2/","t"\n'
+    )
+
+    @pytest.fixture
+    def store(self, tmp_path):
+        s = ThreatFeeds(cache_dir=str(tmp_path))
+        s._parse_urlhaus(self.URLHAUS_WITH_PLATFORMS)
+        s._loaded_at["URLhaus"] = time.time()
+        s._loaded_at["ThreatFox"] = time.time()
+        s._loaded_at["ScamSniffer-домены"] = time.time()
+        s._loaded_at["Feodo Tracker"] = time.time()
+        return s
+
+    def test_platform_host_is_not_malicious(self, store):
+        assert store.lookup_host("github.com").verdict is Verdict.CLEAN
+
+    def test_platform_root_url_is_not_malicious(self, store):
+        assert store.lookup_url("https://github.com/").verdict is Verdict.CLEAN
+
+    def test_exact_malicious_url_still_found(self, store):
+        """Конкретная вредоносная ссылка обязана находиться."""
+        result = store.lookup_url("https://github.com/evil/repo/releases/x.exe")
+        assert result.is_hit
+        assert result.hits[0].threat_type == "malware_download"
+
+    def test_host_of_bare_ip_url_not_flagged_either(self, store):
+        """Правило одинаково для всех хостов, не только для известных площадок."""
+        assert store.lookup_host("203.0.113.9").verdict is Verdict.CLEAN
+
+    def test_bad_url_count_available_as_context(self, store):
+        """Счётчик остаётся как справочный показатель для отчёта."""
+        assert store.malicious_urls_on_host("github.com") == 1
+        assert store.malicious_urls_on_host("example.com") == 0
+
+    def test_threatfox_domain_still_flags_host(self, store):
+        """
+        Доменные индикаторы ThreatFox - другое дело: там домен указан
+        как индикатор намеренно, а не выведен из ссылки на файл.
+        """
+        store._parse_threatfox(THREATFOX_JSON)
+        assert store.lookup_host("c2.example").is_hit

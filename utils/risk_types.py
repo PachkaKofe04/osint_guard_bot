@@ -3,7 +3,7 @@
 Единые типы и константы для системы оценки рисков.
 """
 from enum import Enum
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 
 
@@ -117,3 +117,38 @@ def get_risk_description(score: int, level: RiskLevel) -> str:
         return f"{score}/10 - средний уровень риска. Обнаружены подозрительные признаки. Требуется осторожность."
     else:
         return f"{score}/10 - высокий уровень риска. Обнаружены серьёзные признаки недобросовестности. Требуется повышенная осторожность."
+
+
+class ThreatVerdict(BaseModel):
+    """
+    Результат проверки объекта по базам угроз.
+
+    Общий для домена, URL и IP. Поле `checked` обязательно: без него
+    недоступная база неотличима от чистого объекта, и бот выдаёт
+    «ничего не найдено» там, где не искал вовсе.
+    """
+
+    checked: bool = False
+    found: bool = False
+    sources: List[str] = []
+    threat_type: Optional[str] = None
+    malware: Optional[str] = None
+    confidence: Optional[int] = None
+    tags: List[str] = []
+
+    @property
+    def summary(self) -> str:
+        """Короткое описание находки для карточки результата."""
+        if not self.checked:
+            return "проверка не выполнялась"
+        if not self.found:
+            return "в базах угроз не числится"
+
+        parts = []
+        if self.malware:
+            parts.append(self.malware)
+        if self.threat_type:
+            parts.append(self.threat_type)
+        if self.confidence is not None:
+            parts.append(f"уверенность {self.confidence}%")
+        return ", ".join(parts) if parts else "числится в базах угроз"
