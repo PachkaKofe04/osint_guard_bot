@@ -22,7 +22,7 @@ from phone_scanner.formatter import format_phone_summary
 from bin_scanner.scanner import scan_bin_async
 from bin_scanner.formatter import format_bin_summary
 
-from keyboards.main_menu import get_main_menu
+from keyboards.menu_kb import get_main_menu
 from utils.input_detect import detect_input_type
 from utils.safe_html import esc
 from utils.telegram_io import safe_edit, safe_answer

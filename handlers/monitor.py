@@ -24,6 +24,11 @@ def set_storage(storage: MonitorStorage) -> None:
     _storage = storage
 
 
+def get_storage() -> MonitorStorage | None:
+    """Доступ к хранилищу для кнопочного интерфейса (handlers/monitor_menu.py)."""
+    return _storage
+
+
 # Поддерживаемые типы сканирования для мониторинга
 SUPPORTED_TYPES = {"domain", "ip", "email"}
 

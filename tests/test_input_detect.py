@@ -117,3 +117,22 @@ class TestTriggersScan:
     def test_ambiguous_does_not_consume_quota(self):
         """ambiguous только переспрашивает кнопкой - внешних запросов нет."""
         assert "ambiguous" not in SCANNABLE_TYPES
+
+
+class TestNumericInput:
+    """Обрывки цифр не должны уходить в скан никнейма по 20 платформам."""
+
+    @pytest.mark.parametrize("value", ["1234", "12", "12345", "123456789", "0"])
+    def test_stray_digits_are_unknown(self, value):
+        assert detect_input_type(value)[0] == "unknown"
+
+    @pytest.mark.parametrize("value", ["427229", "45717360"])
+    def test_valid_bin_still_detected(self, value):
+        assert detect_input_type(value)[0] == "bin"
+
+    @pytest.mark.parametrize("value", ["+79991234567", "89991234567"])
+    def test_valid_phone_still_detected(self, value):
+        assert detect_input_type(value)[0] == "phone"
+
+    def test_digits_do_not_consume_quota(self):
+        assert triggers_scan("1234") is False

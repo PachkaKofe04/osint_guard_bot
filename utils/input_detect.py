@@ -130,6 +130,11 @@ def detect_input_type(text: str) -> Tuple[str, str]:
             return "username", stripped
         return "unknown", text
 
+    # Чистые цифры сюда доходят, только если не подошли под телефон и BIN:
+    # это не никнейм, а обрывок номера. Иначе «1234» уходило в скан по 20 платформам.
+    if text.isdigit():
+        return "unknown", text
+
     # Голое слово: похоже на username, но может быть обычным словом
     if USERNAME_PATTERN.match(text) and "." not in text:
         if text.lower() in COMMON_WORDS:

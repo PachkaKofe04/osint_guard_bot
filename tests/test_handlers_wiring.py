@@ -10,6 +10,7 @@
 (тестируются только ветки, которые до них не доходят).
 """
 import datetime
+import tempfile
 
 import pytest
 from aiogram import Bot, Dispatcher
@@ -18,8 +19,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import CallbackQuery, Chat, Message, Update, User
 
-from handlers.auto_detect import router as auto_detect_router
-from handlers.menu import router as menu_router
+from handlers.monitor import set_storage
 from middlewares.rate_limit import RateLimitMiddleware
 
 FAKE_TOKEN = "123456:AAaaAAaaAAaaAAaaAAaaAAaaAAaaAAaaAAa"
@@ -93,19 +93,21 @@ def bot() -> RecordingBot:
 @pytest.fixture(scope="module")
 def _dispatcher() -> Dispatcher:
     """
-    Диспетчер с rate limiter - как в проде.
+    Тот же диспетчер, что собирает main.py.
+
+    Собираем именно продовой функцией, а не отдельной копией: иначе тесты
+    проверяли бы сборку, которая никогда не запускается, и рассинхрон
+    порядка роутеров остался бы незамеченным.
 
     Модульная область видимости вынужденная: роутеры в aiogram - модульные
     синглтоны и не могут быть присоединены к двум Dispatcher'ам.
     Состояние между тестами сбрасывает фикстура dp.
     """
-    dispatcher = Dispatcher(storage=MemoryStorage())
-    dispatcher.update.middleware(
-        RateLimitMiddleware(burst_limit=5, window_seconds=30, min_interval_seconds=3)
-    )
-    dispatcher.include_router(menu_router)
-    dispatcher.include_router(auto_detect_router)
-    return dispatcher
+    from main import build_dispatcher
+    from monitoring.storage import MonitorStorage
+
+    set_storage(MonitorStorage(filepath=str(tempfile.mkstemp(suffix=".json")[1])))
+    return build_dispatcher()
 
 
 def _rate_limiter(dispatcher: Dispatcher) -> RateLimitMiddleware:
@@ -158,7 +160,7 @@ class TestUsageHintsNotRateLimited:
 
     async def test_many_menu_commands_all_answered(self, dp, bot):
         for i in range(15):
-            await feed(dp, bot, i + 1, message=make_message("/start", mid=i + 1))
+            await feed(dp, bot, i + 1, message=make_message("/menu", mid=i + 1))
 
         assert bot.method_names().count("SendMessage") == 15
         assert "Слишком много" not in bot.texts()
@@ -201,15 +203,257 @@ class TestBotAlwaysAnswers:
 
 
 class TestMenuNavigation:
-    async def test_main_menu_has_buttons(self, dp, bot):
+    async def test_start_sends_persistent_and_inline_menu(self, dp, bot):
+        """/start даёт постоянную кнопку «Меню» и инлайн-меню разделов."""
         await feed(dp, bot, 1, message=make_message("/start"))
 
-        markup = bot.calls[0].reply_markup
+        markups = [c.reply_markup for c in bot.calls]
+        assert any(
+            getattr(m, "keyboard", None) for m in markups
+        ), "нет постоянной ReplyKeyboard"
+        assert any(
+            getattr(m, "inline_keyboard", None) for m in markups
+        ), "нет инлайн-меню разделов"
+
+    async def test_main_menu_has_buttons(self, dp, bot):
+        await feed(dp, bot, 1, message=make_message("/menu"))
+
+        markup = bot.calls[-1].reply_markup
         assert markup is not None
         assert len(markup.inline_keyboard) >= 4
 
-    async def test_unknown_section_gets_alert(self, dp, bot):
-        await feed(dp, bot, 1, callback_query=make_callback("help:no_such_section"))
+    async def test_persistent_button_opens_menu(self, dp, bot):
+        """Кнопка «☰ Меню» под полем ввода приходит как обычный текст."""
+        from keyboards.menu_kb import MENU_BUTTON_TEXT
+
+        await feed(dp, bot, 1, message=make_message(MENU_BUTTON_TEXT))
+
+        assert bot.calls, "бот промолчал на постоянную кнопку"
+        assert bot.calls[-1].reply_markup.inline_keyboard
+
+    async def test_unknown_category_gets_alert(self, dp, bot):
+        await feed(dp, bot, 1, callback_query=make_callback("menu:cat:no_such"))
 
         assert bot.method_names() == ["AnswerCallbackQuery"]
         assert bot.calls[0].show_alert is True
+
+
+class TestButtonMenuIsComplete:
+    """
+    Каждая кнопка меню должна что-то делать.
+
+    Раньше разделы «Домен», «QR» и «Мониторинг» отвечали «Раздел не найден»,
+    потому что кнопки и обработчики жили отдельно и разошлись. Теперь меню
+    строится из scan_registry, а эти тесты проверяют, что связь не порвалась.
+    """
+
+    @staticmethod
+    def _all_callback_data():
+        """Собирает callback_data со всех экранов меню."""
+        from keyboards.menu_kb import (
+            get_category_menu,
+            get_main_menu,
+            get_monitor_menu,
+            get_more_menu,
+        )
+        from scan_registry import CATEGORIES
+
+        markups = [get_main_menu(), get_more_menu(), get_monitor_menu(True)]
+        markups += [get_category_menu(c.key) for c in CATEGORIES]
+
+        data = []
+        for markup in markups:
+            for row in markup.inline_keyboard:
+                for button in row:
+                    if button.callback_data:
+                        data.append(button.callback_data)
+        return sorted(set(data))
+
+    def test_callback_data_fits_telegram_limit(self):
+        """Telegram отвергает callback_data длиннее 64 байт."""
+        for data in self._all_callback_data():
+            assert len(data.encode("utf-8")) <= 64, data
+
+    async def test_every_menu_button_answers(self, dp, bot):
+        """Ни одна кнопка не должна оставлять пользователя без реакции."""
+        silent = []
+        for i, data in enumerate(self._all_callback_data()):
+            bot.calls.clear()
+            await feed(dp, bot, i + 1, callback_query=make_callback(data, mid=i + 500))
+            if not bot.calls:
+                silent.append(data)
+
+        assert not silent, f"кнопки без реакции: {silent}"
+
+    async def test_no_button_reports_section_not_found(self, dp, bot):
+        """Формулировка «не найден» означает рассинхрон меню и обработчиков."""
+        broken = []
+        for i, data in enumerate(self._all_callback_data()):
+            bot.calls.clear()
+            await feed(dp, bot, i + 1, callback_query=make_callback(data, mid=i + 600))
+            rendered = bot.texts() + " ".join(
+                getattr(c, "text", "") or "" for c in bot.calls
+            )
+            if "не найден" in rendered or "недоступно" in rendered:
+                broken.append(data)
+
+        assert not broken, f"кнопки сообщают о ненайденном разделе: {broken}"
+
+    async def test_every_direction_is_reachable(self, dp, bot):
+        """Каждое направление из реестра должно открываться кнопкой."""
+        from scan_registry import DIRECTIONS
+
+        reachable = {
+            d.split(":", 1)[1]
+            for d in self._all_callback_data()
+            if d.startswith("scan:")
+        }
+        assert reachable == set(DIRECTIONS), (
+            f"не попали в меню: {set(DIRECTIONS) - reachable}"
+        )
+
+
+class TestScanFlow:
+    """Сценарий кнопка -> ввод -> результат."""
+
+    async def test_direction_button_asks_for_input(self, dp, bot):
+        await feed(dp, bot, 1, callback_query=make_callback("scan:ip"))
+
+        assert "AnswerCallbackQuery" in bot.method_names()
+        assert "IP" in bot.texts()
+        # Должна быть кнопка отмены, иначе из режима ввода не выйти
+        markup = bot.calls[-1].reply_markup
+        assert any(
+            b.callback_data == "cancel"
+            for row in markup.inline_keyboard for b in row
+        )
+
+    async def test_limited_direction_warns_upfront(self, dp, bot):
+        """Про нерабочие источники бот предупреждает до проверки, а не после."""
+        await feed(dp, bot, 1, callback_query=make_callback("scan:wallet"))
+
+        assert "частично" in bot.texts().lower()
+
+    async def test_cancel_returns_to_menu(self, dp, bot):
+        await feed(dp, bot, 1, callback_query=make_callback("scan:ip"))
+        bot.calls.clear()
+        await feed(dp, bot, 2, callback_query=make_callback("cancel"))
+
+        assert bot.calls[-1].reply_markup.inline_keyboard
+        assert "Отмен" in bot.texts()
+
+    async def test_image_direction_rejects_text(self, dp, bot):
+        """EXIF ждёт файл: на текст надо объяснить, а не молча падать."""
+        await feed(dp, bot, 1, callback_query=make_callback("scan:exif"))
+        bot.calls.clear()
+        await feed(dp, bot, 2, message=make_message("просто текст"))
+
+        assert "изображение" in bot.texts().lower()
+
+
+class TestSourcesScreen:
+    """Экран статуса источников: бот честно говорит, что работает не полностью."""
+
+    async def test_sources_screen_lists_limited(self, dp, bot):
+        from scan_registry import limited_directions
+
+        await feed(dp, bot, 1, callback_query=make_callback("menu:sources"))
+
+        rendered = bot.texts()
+        for direction in limited_directions():
+            assert direction.title in rendered, direction.title
+
+
+class TestCommandAliases:
+    """
+    Команды ведут в тот же сценарий, что и кнопки.
+
+    Раньше на каждое направление был отдельный файл-хендлер со своими
+    текстами и своим поведением при пустом аргументе - семь копий,
+    расходившихся между собой.
+    """
+
+    @staticmethod
+    def _commands():
+        from scan_registry import DIRECTIONS
+
+        return [
+            (d, d.commands[0])
+            for d in DIRECTIONS.values()
+            if d.commands
+        ]
+
+    async def test_every_registry_command_answers(self, dp, bot):
+        """Каждая команда из реестра должна быть обработана."""
+        silent = []
+        for i, (_direction, command) in enumerate(self._commands()):
+            bot.calls.clear()
+            await feed(dp, bot, i + 1, message=make_message(command, mid=i + 800))
+            if not bot.calls:
+                silent.append(command)
+
+        assert not silent, f"команды без ответа: {silent}"
+
+    async def test_command_without_argument_opens_input_screen(self, dp, bot):
+        """«/ip» без аргумента открывает тот же экран, что кнопка IP-адрес."""
+        await feed(dp, bot, 1, message=make_message("/ip"))
+
+        markup = bot.calls[-1].reply_markup
+        assert any(
+            b.callback_data == "cancel"
+            for row in markup.inline_keyboard for b in row
+        ), "нет кнопки отмены - из режима ввода не выйти"
+
+    async def test_command_and_button_show_same_prompt(self, dp, bot):
+        """Текст экрана ввода не должен зависеть от способа входа."""
+        from handlers.scan_flow import build_prompt
+        from scan_registry import get_direction
+
+        await feed(dp, bot, 1, message=make_message("/ip"))
+        via_command = bot.texts()
+
+        assert build_prompt(get_direction("ip")) in via_command
+
+    async def test_unknown_command_still_reports(self, dp, bot):
+        await feed(dp, bot, 1, message=make_message("/definitely_not_a_command"))
+
+        assert "неизвестна" in bot.texts()
+
+
+class TestStateDoesNotTrapUser:
+    """
+    Из режима ожидания ввода всегда есть выход.
+
+    Хендлер «неподходящий тип сообщения» ловил в том числе команды,
+    и пользователь застревал: «/ip 8.8.8.8» получал ответ
+    «с таким типом сообщений я не работаю».
+    """
+
+    async def test_command_works_while_waiting_for_input(self, dp, bot):
+        await feed(dp, bot, 1, callback_query=make_callback("scan:domain"))
+        bot.calls.clear()
+
+        await feed(dp, bot, 2, message=make_message("/ip"))
+
+        assert "IP" in bot.texts()
+        assert "не работаю" not in bot.texts()
+
+    async def test_start_works_while_waiting_for_input(self, dp, bot):
+        await feed(dp, bot, 1, callback_query=make_callback("scan:domain"))
+        bot.calls.clear()
+
+        await feed(dp, bot, 2, message=make_message("/start"))
+
+        assert "не работаю" not in bot.texts()
+        assert bot.calls
+
+    async def test_menu_button_works_while_waiting_for_input(self, dp, bot):
+        from keyboards.menu_kb import MENU_BUTTON_TEXT
+
+        await feed(dp, bot, 1, callback_query=make_callback("scan:domain"))
+        bot.calls.clear()
+
+        await feed(dp, bot, 2, message=make_message(MENU_BUTTON_TEXT))
+
+        assert "не работаю" not in bot.texts()
+        assert bot.calls[-1].reply_markup.inline_keyboard

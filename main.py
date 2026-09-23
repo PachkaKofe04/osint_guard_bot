@@ -15,24 +15,19 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand
 
 from config import settings
-from handlers.menu import router as menu_router
-from handlers.scan_domain import router as scan_router
-from handlers.phone_scan import router as phone_router
-from handlers.bin_scan import router as bin_router
-from handlers.url_scan import router as url_router
-from handlers.email_scan import router as email_router
-from handlers.ip_scan import router as ip_router
-from handlers.username_scan import router as username_router
-from handlers.wallet_scan import router as wallet_router
-from handlers.leak_scan import router as leak_router
-from handlers.exif_scan import router as exif_router
-from handlers.qr_scan import router as qr_router
 from handlers.auto_detect import router as auto_detect_router
+from handlers.commands import router as commands_router
+from handlers.media import router as media_router
+from handlers.menu import router as menu_router
 from handlers.monitor import router as monitor_router, set_storage as set_monitor_storage
+from handlers.monitor_menu import router as monitor_menu_router
+from handlers.result_actions import router as result_actions_router
+from handlers.scan_flow import router as scan_flow_router
 from middlewares.logging import LoggingMiddleware
 from middlewares.rate_limit import RateLimitMiddleware
-from monitoring.storage import MonitorStorage
 from monitoring.scheduler import monitor_loop
+from monitoring.storage import MonitorStorage
+from scan_registry import DIRECTIONS
 
 log = logging.getLogger(__name__)
 
@@ -53,24 +48,71 @@ def _setup_logging() -> None:
     )
 
 
-# Команды для синего меню Telegram. Раньше getMyCommands возвращал пустой
-# список - пользователь не видел ни одной возможности бота.
-BOT_COMMANDS = [
-    BotCommand(command="start", description="☰ Главное меню"),
-    BotCommand(command="menu", description="☰ Главное меню"),
-    BotCommand(command="scan", description="🌍 Проверить домен"),
-    BotCommand(command="url", description="🔗 Проверить ссылку"),
-    BotCommand(command="email", description="📧 Проверить email"),
-    BotCommand(command="phone", description="📞 Проверить телефон"),
-    BotCommand(command="ip", description="🌐 Проверить IP-адрес"),
-    BotCommand(command="username", description="👤 Найти никнейм"),
-    BotCommand(command="bin", description="💳 Проверить BIN карты"),
-    BotCommand(command="wallet", description="💰 Проверить криптокошелёк"),
-    BotCommand(command="leak", description="🔓 Проверить утечки"),
-    BotCommand(command="qr", description="📱 Распознать QR-код"),
-    BotCommand(command="monitors", description="📡 Мои мониторы"),
-    BotCommand(command="help", description="❓ Помощь"),
-]
+def build_bot_commands() -> list[BotCommand]:
+    """
+    Список для синего меню команд Telegram.
+
+    Строится из scan_registry, поэтому не расходится с тем, что бот умеет.
+    Раньше getMyCommands возвращал пустой список и пользователь не видел
+    ни одной возможности бота.
+    """
+    commands = [
+        BotCommand(command="start", description="Главное меню"),
+        BotCommand(command="menu", description="Главное меню"),
+    ]
+
+    for direction in DIRECTIONS.values():
+        if not direction.commands:
+            continue
+        primary = direction.commands[0].lstrip("/")
+        commands.append(
+            BotCommand(command=primary, description=direction.button)
+        )
+
+    commands.append(BotCommand(command="monitors", description="Мои объекты под наблюдением"))
+    commands.append(BotCommand(command="help", description="Справка"))
+    return commands
+
+
+def build_dispatcher() -> Dispatcher:
+    """
+    Собирает диспетчер. Порядок роутеров важен.
+
+    1. menu          - навигация, /start, постоянная кнопка «Меню»
+    2. scan_flow     - состояние ожидания ввода; должно опередить media
+                       и auto_detect, иначе присланное фото или текст уйдут
+                       не в то направление
+    3. commands      - команды-алиасы к тем же направлениям
+    4. result_actions- кнопки на карточке результата
+    5. monitor_menu  - мониторинг кнопками (тоже со своим состоянием)
+    6. monitor       - команды мониторинга
+    7. media         - фото и документы, присланные мимо меню
+    8. auto_detect   - catch-all: всё остальное
+    """
+    dispatcher = Dispatcher(storage=MemoryStorage())
+
+    dispatcher.update.middleware(LoggingMiddleware())
+    # 5 проверок подряд, далее минимум 3 секунды между ними.
+    # Нажатия кнопок в квоту не попадают - это навигация, а не скан.
+    dispatcher.update.middleware(RateLimitMiddleware(
+        burst_limit=5,
+        window_seconds=30,
+        min_interval_seconds=3,
+    ))
+
+    for router in (
+        menu_router,
+        scan_flow_router,
+        commands_router,
+        result_actions_router,
+        monitor_menu_router,
+        monitor_router,
+        media_router,
+        auto_detect_router,
+    ):
+        dispatcher.include_router(router)
+
+    return dispatcher
 
 
 async def main() -> None:
@@ -80,7 +122,6 @@ async def main() -> None:
         token=settings.BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
-    dp = Dispatcher(storage=MemoryStorage())
 
     # Graceful shutdown - отменяем задачу polling по SIGINT/SIGTERM.
     # aiogram сам корректно завершит polling через CancelledError.
@@ -104,41 +145,17 @@ async def main() -> None:
         signal.signal(signal.SIGINT, _win_handler)
         signal.signal(signal.SIGTERM, _win_handler)
 
-    # Мониторинг
     monitor_storage = MonitorStorage()
     set_monitor_storage(monitor_storage)
 
-    # Мидлвары
-    dp.update.middleware(LoggingMiddleware())
-    # Rate limiter: 5 запросов подряд разрешены, потом минимум 3 сек между запросами
-    dp.update.middleware(RateLimitMiddleware(
-        burst_limit=5,
-        window_seconds=30,
-        min_interval_seconds=3,
-    ))
-
-    # Роутеры
-    dp.include_router(menu_router)
-    dp.include_router(scan_router)
-    dp.include_router(phone_router)
-    dp.include_router(bin_router)
-    dp.include_router(url_router)
-    dp.include_router(email_router)
-    dp.include_router(ip_router)
-    dp.include_router(username_router)
-    dp.include_router(wallet_router)
-    dp.include_router(leak_router)
-    dp.include_router(qr_router)        # QR FIRST - проверяет caption "/qr"
-    dp.include_router(exif_router)      # EXIF SECOND - ловит все остальные фото
-    dp.include_router(monitor_router)   # Мониторинг
-    # Auto-detect последним - catch-all для сообщений без команд
-    dp.include_router(auto_detect_router)
+    dp = build_dispatcher()
 
     await bot.delete_webhook(drop_pending_updates=True)
 
     try:
-        await bot.set_my_commands(BOT_COMMANDS)
-        log.info("Registered %d commands in Telegram menu", len(BOT_COMMANDS))
+        commands = build_bot_commands()
+        await bot.set_my_commands(commands)
+        log.info("Registered %d commands in Telegram menu", len(commands))
     except Exception as exc:
         # Не критично для работы бота - логируем и продолжаем
         log.warning("Failed to register bot commands: %s", exc)
