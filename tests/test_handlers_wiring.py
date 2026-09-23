@@ -9,6 +9,7 @@
 Ни одного обращения в сеть: Bot подменён, сканеры не вызываются
 (тестируются только ветки, которые до них не доходят).
 """
+import dataclasses
 import datetime
 import tempfile
 
@@ -328,11 +329,34 @@ class TestScanFlow:
             for row in markup.inline_keyboard for b in row
         )
 
-    async def test_limited_direction_warns_upfront(self, dp, bot):
-        """Про нерабочие источники бот предупреждает до проверки, а не после."""
-        await feed(dp, bot, 1, callback_query=make_callback("scan:wallet"))
+    def test_limited_direction_warns_upfront(self):
+        """
+        Про нерабочие источники бот предупреждает до проверки, а не после.
 
-        assert "частично" in bot.texts().lower()
+        Проверяется механизм, а не конкретное направление: сейчас ограниченных
+        нет, но как только появится - предупреждение обязано попасть на экран
+        ввода, до того как пользователь потратит время на запрос.
+        """
+        from handlers.scan_flow import build_prompt
+        from scan_registry import STATUS_LIMITED, DIRECTIONS
+
+        sample = next(iter(DIRECTIONS.values()))
+        limited = dataclasses.replace(
+            sample,
+            status=STATUS_LIMITED,
+            status_note="Источник данных не отвечает",
+        )
+
+        prompt = build_prompt(limited)
+        assert "частично" in prompt.lower()
+        assert "Источник данных не отвечает" in prompt
+
+    def test_working_direction_has_no_warning(self):
+        from handlers.scan_flow import build_prompt
+        from scan_registry import DIRECTIONS
+
+        prompt = build_prompt(DIRECTIONS["ip"])
+        assert "частично" not in prompt.lower()
 
     async def test_cancel_returns_to_menu(self, dp, bot):
         await feed(dp, bot, 1, callback_query=make_callback("scan:ip"))

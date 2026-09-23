@@ -26,6 +26,11 @@ class SslInfo(BaseModel):
     last_seen: Optional[datetime] = None
     issuers: List[str] = []
     san_domains: List[str] = []
+    # Полная ли история сертификатов. certspotter отдаёт только последние
+    # выпуски, поэтому его first_seen не годится для оценки возраста домена:
+    # иначе любой сайт выглядел бы как только что созданный.
+    history_complete: bool = True
+    source: Optional[str] = None
 
 
 class HttpInfo(BaseModel):

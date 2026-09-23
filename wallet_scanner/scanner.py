@@ -1,5 +1,17 @@
 # wallet_scanner/scanner.py
-"""Основной модуль сканирования Crypto Wallet."""
+"""
+Сканирование криптокошельков.
+
+Данные блокчейна берутся из wallet_scanner/providers.py - по провайдеру на
+сеть, все без ключей. Скам-проверка идёт по локальному кэшу ScamSniffer
+(services/threat_feeds.py).
+
+Про честность вердикта. Раньше и недоступный источник, и реальное отсутствие
+адреса в базе давали один результат - «скам не обнаружен». База скама при этом
+была мертва больше года, то есть бот всегда отвечал «чисто», ни разу ничего не
+проверив. Теперь состояние проверки хранится отдельно в scam_check_performed,
+и форматтер обязан его показывать.
+"""
 import asyncio
 import logging
 from datetime import datetime, timezone
@@ -8,196 +20,74 @@ from typing import Optional
 
 import aiohttp
 
-from wallet_scanner.models import WalletInfo, WalletScanResult
-from wallet_scanner.validators import validate_address, detect_currency
-from wallet_scanner.risk_engine import calculate_wallet_risk
+from services.threat_feeds import feeds
 from utils.cache import TTLCache
+from wallet_scanner.models import WalletInfo, WalletScanResult
+from wallet_scanner.providers import (
+    PRIVACY_COINS,
+    balance_available,
+    fetch_chain_data,
+)
+from wallet_scanner.risk_engine import calculate_wallet_risk
+from wallet_scanner.validators import validate_address
 
 log = logging.getLogger(__name__)
 
-# Кэш для результатов сканирования
 _wallet_cache: TTLCache[WalletScanResult] = TTLCache(ttl_seconds=300, max_size=512)
 
-# Blockchair - универсальный API для 20+ блокчейнов (1500 req/день бесплатно)
-BLOCKCHAIR_API = "https://api.blockchair.com/{chain}/dashboards/address/{address}"
-
-# CryptoScamDB - база скам-адресов (бесплатно, без ключа)
-CRYPTOSCAMDB_API = "https://api.cryptoscamdb.org/v1/check/{address}"
-
-# CoinGecko - курсы криптовалют к USD (бесплатно, без ключа)
+# CoinGecko - курсы к USD, без ключа
 COINGECKO_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price"
 COINGECKO_IDS = {
-    "BTC":  "bitcoin",
-    "ETH":  "ethereum",
-    "LTC":  "litecoin",
+    "BTC": "bitcoin",
+    "ETH": "ethereum",
+    "LTC": "litecoin",
     "DOGE": "dogecoin",
-    "TRX":  "tron",
-    "XRP":  "ripple",
-    "SOL":  "solana",
-    "XMR":  "monero",
-    "BCH":  "bitcoin-cash",
+    "TRX": "tron",
+    "XRP": "ripple",
+    "SOL": "solana",
+    "XMR": "monero",
+    "BCH": "bitcoin-cash",
+    "DASH": "dash",
 }
-
-# Маппинг валюта → название цепочки в Blockchair
-BLOCKCHAIR_CHAINS = {
-    "BTC":  "bitcoin",
-    "ETH":  "ethereum",
-    "LTC":  "litecoin",
-    "DOGE": "dogecoin",
-    "TRX":  "tron",
-    "XRP":  "ripple",
-    "SOL":  "solana",
-    "XMR":  "monero",
-    "BCH":  "bitcoin-cash",
-}
-
-# Делители для перевода минимальных единиц в основную валюту
-BALANCE_DIVISORS = {
-    "BTC":  Decimal(10 ** 8),   # satoshi
-    "ETH":  Decimal(10 ** 18),  # wei
-    "LTC":  Decimal(10 ** 8),   # litoshi
-    "DOGE": Decimal(10 ** 8),   # koinu
-    "TRX":  Decimal(10 ** 6),   # sun
-    "XRP":  Decimal(10 ** 6),   # drop
-    "SOL":  Decimal(10 ** 9),   # lamport
-    "XMR":  Decimal(10 ** 12),  # piconero
-    "BCH":  Decimal(10 ** 8),   # satoshi
-}
-
 
 
 async def fetch_coin_price_usd(currency: str) -> Optional[Decimal]:
-    """Получает курс криптовалюты в USD через CoinGecko."""
+    """Курс монеты к доллару. None, если получить не удалось."""
     coin_id = COINGECKO_IDS.get(currency)
     if not coin_id:
         return None
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 COINGECKO_PRICE_URL,
                 params={"ids": coin_id, "vs_currencies": "usd"},
-                timeout=aiohttp.ClientTimeout(total=5),
-                headers={"User-Agent": "OSINT-Bot/1.0"},
-            ) as response:
-                if response.status != 200:
-                    return None
-                data = await response.json()
-                price = data.get(coin_id, {}).get("usd")
-                return Decimal(str(price)) if price is not None else None
-    except Exception as e:
-        log.debug(f"[Wallet] CoinGecko price error for {currency}: {e}")
-        return None
-
-
-async def fetch_blockchair_info(address: str, currency: str) -> Optional[dict]:
-    """
-    Получает информацию об адресе через Blockchair API.
-
-    Returns dict с полями: balance, tx_count, first_seen, last_seen, is_contract
-    или None при ошибке.
-    """
-    chain = BLOCKCHAIR_CHAINS.get(currency)
-    if not chain:
-        return None
-
-    url = BLOCKCHAIR_API.format(chain=chain, address=address)
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                url,
-                timeout=aiohttp.ClientTimeout(total=10),
-                headers={"User-Agent": "OSINT-Bot/1.0"},
-            ) as response:
-                if response.status != 200:
-                    log.warning(f"[Wallet] Blockchair HTTP {response.status} for {currency}:{address}")
-                    return None
-
-                data = await response.json()
-
-    except Exception as e:
-        log.warning(f"[Wallet] Blockchair error for {currency}:{address}: {e}")
-        return None
-
-    try:
-        addr_data = data.get("data", {}).get(address, {}).get("address", {})
-        if not addr_data:
-            # Blockchair иногда возвращает ключ в другом регистре (ETH - lowercase)
-            addr_key = address.lower()
-            addr_data = data.get("data", {}).get(addr_key, {}).get("address", {})
-
-        if not addr_data:
-            log.warning(f"[Wallet] Blockchair: нет данных для {address}")
-            return None
-
-        divisor = BALANCE_DIVISORS.get(currency, Decimal(1))
-        raw_balance = addr_data.get("balance", 0)
-        balance = Decimal(str(raw_balance)) / divisor if raw_balance is not None else None
-
-        tx_count = addr_data.get("transaction_count")
-
-        # Даты (формат: "2021-01-01 00:00:00")
-        first_seen = None
-        last_seen = None
-        fs_str = addr_data.get("first_seen_receiving")
-        ls_str = addr_data.get("last_seen_receiving")
-        if fs_str:
-            try:
-                first_seen = datetime.strptime(fs_str, "%Y-%m-%d %H:%M:%S")
-            except ValueError:
-                pass
-        if ls_str:
-            try:
-                last_seen = datetime.strptime(ls_str, "%Y-%m-%d %H:%M:%S")
-            except ValueError:
-                pass
-
-        # Смарт-контракт (только для ETH)
-        is_contract = addr_data.get("type") == "contract"
-
-        return {
-            "balance": balance,
-            "tx_count": tx_count,
-            "first_seen": first_seen,
-            "last_seen": last_seen,
-            "is_contract": is_contract,
-        }
-
-    except Exception as e:
-        log.warning(f"[Wallet] Blockchair parse error for {address}: {e}")
-        return None
-
-
-async def fetch_cryptoscamdb(address: str) -> list:
-    """
-    Проверяет адрес в базе CryptoScamDB.
-
-    Returns:
-        Список меток скама (пустой если чисто)
-    """
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                CRYPTOSCAMDB_API.format(address=address),
                 timeout=aiohttp.ClientTimeout(total=8),
-                headers={"User-Agent": "OSINT-Bot/1.0"},
+                headers={"User-Agent": "OSINT-Guard-Bot/1.0"},
             ) as response:
                 if response.status != 200:
-                    return []
+                    return None
                 data = await response.json()
+    except Exception as exc:
+        log.debug("[wallet] CoinGecko недоступен для %s: %s", currency, exc)
+        return None
 
-        entries = data.get("entries", [])
-        labels = []
-        for entry in entries:
-            entry_type = entry.get("type", "")
-            name = entry.get("name", "")
-            if entry_type:
-                labels.append(entry_type if not name else f"{entry_type}: {name}")
-        return labels
+    price = (data.get(coin_id) or {}).get("usd")
+    return Decimal(str(price)) if price is not None else None
 
-    except Exception as e:
-        log.debug(f"[Wallet] CryptoScamDB error for {address}: {e}")
-        return []
+
+def _invalid_result(address: str) -> WalletScanResult:
+    info = WalletInfo(address=address, currency="UNKNOWN", is_valid=False)
+    risk_level, flags, score = calculate_wallet_risk(info)
+    return WalletScanResult(
+        address=address,
+        currency="UNKNOWN",
+        info=info,
+        risk_level=risk_level,
+        flags=flags,
+        score=score,
+        scanned_at=datetime.now(timezone.utc),
+    )
 
 
 async def scan_wallet(raw_address: str) -> WalletScanResult:
@@ -208,85 +98,64 @@ async def scan_wallet(raw_address: str) -> WalletScanResult:
         raw_address: Адрес кошелька
 
     Returns:
-        WalletScanResult с полной информацией
+        WalletScanResult
     """
     address = raw_address.strip()
 
-    # Проверяем кэш
     cached = _wallet_cache.get(address)
     if cached is not None:
         return cached
 
-    log.info(f"[Wallet Scanner] Scanning: {address}")
-
-    # Валидация и определение валюты
     is_valid, currency = validate_address(address)
-
     if not is_valid or not currency:
-        info = WalletInfo(address=address, currency="UNKNOWN", is_valid=False)
-        risk_level, flags, score = calculate_wallet_risk(info)
-        result = WalletScanResult(
-            address=address,
-            currency="UNKNOWN",
-            info=info,
-            risk_level=risk_level,
-            flags=flags,
-            score=score,
-            scanned_at=datetime.now(timezone.utc),
-        )
+        result = _invalid_result(address)
         _wallet_cache.set(address, result)
         return result
 
-    is_scam = False
-    scam_labels: list = []
-    exchange_name = None
+    log.info("[wallet] Сканирую %s:%s", currency, address)
 
-    # Параллельно: данные из блокчейна + проверка скама + курс USD
-    bc_data, scamdb_labels, coin_price_usd = await asyncio.gather(
-        fetch_blockchair_info(address, currency),
-        fetch_cryptoscamdb(address),
+    # Скам-проверка идёт по памяти, в сеть не ходит - делаем её сразу
+    scam_result = feeds.lookup_crypto_address(address)
+
+    chain_data, price_usd = await asyncio.gather(
+        fetch_chain_data(address, currency),
         fetch_coin_price_usd(currency),
     )
 
-    balance = None
+    balance = chain_data.balance if chain_data else None
     balance_usd = None
-    tx_count = None
-    first_seen = None
-    last_seen = None
-    is_contract = False
+    if balance is not None and price_usd is not None:
+        balance_usd = (balance * price_usd).quantize(Decimal("0.01"))
 
-    if bc_data:
-        balance = bc_data.get("balance")
-        tx_count = bc_data.get("tx_count")
-        first_seen = bc_data.get("first_seen")
-        last_seen = bc_data.get("last_seen")
-        is_contract = bc_data.get("is_contract", False)
+    scam_labels = []
+    if scam_result.is_hit:
+        for hit in scam_result.hits:
+            label = hit.threat_type or "scam"
+            if hit.source:
+                label = f"{label} ({hit.source})"
+            scam_labels.append(label)
 
-    if balance is not None and coin_price_usd is not None:
-        balance_usd = (balance * coin_price_usd).quantize(Decimal("0.01"))
-
-    # Объединяем скам-метки из локального списка и CryptoScamDB
-    if scamdb_labels:
-        is_scam = True
-        scam_labels = list(set(scam_labels + scamdb_labels))
-
-    # Собираем информацию
     info = WalletInfo(
         address=address,
         currency=currency,
         is_valid=True,
         balance=balance,
         balance_usd=balance_usd,
-        tx_count=tx_count,
-        first_seen=first_seen,
-        last_seen=last_seen,
-        is_scam=is_scam,
+        tx_count=chain_data.tx_count if chain_data else None,
+        first_seen=chain_data.first_seen if chain_data else None,
+        last_seen=chain_data.last_seen if chain_data else None,
+        is_contract=chain_data.is_contract if chain_data else False,
+        is_smart_account=chain_data.is_smart_account if chain_data else False,
+        contract_name=chain_data.contract_name if chain_data else None,
+        is_scam=scam_result.is_hit,
         scam_labels=scam_labels,
-        exchange_name=exchange_name,
-        is_contract=is_contract,
+        # Ключевое отличие от прежней версии: отсутствие находки и
+        # невыполненная проверка - разные вещи
+        scam_check_performed=scam_result.is_checked,
+        balance_available=balance_available(currency),
+        data_source=chain_data.source if chain_data else None,
     )
 
-    # Рассчитываем риск
     risk_level, flags, score = calculate_wallet_risk(info)
 
     result = WalletScanResult(
@@ -302,5 +171,12 @@ async def scan_wallet(raw_address: str) -> WalletScanResult:
 
     _wallet_cache.set(address, result)
 
-    log.info(f"[Wallet Scanner] Result for {address}: {currency}, balance={balance}, tx={tx_count}, scam={is_scam}")
+    log.info(
+        "[wallet] %s:%s - баланс=%s источник=%s скам=%s (проверка выполнена: %s)",
+        currency, address, balance, info.data_source,
+        info.is_scam, info.scam_check_performed,
+    )
     return result
+
+
+__all__ = ["scan_wallet", "fetch_coin_price_usd", "PRIVACY_COINS"]

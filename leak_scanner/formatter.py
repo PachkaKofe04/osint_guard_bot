@@ -29,24 +29,22 @@ def format_leak_result(result: LeakScanResult) -> str:
     lines.append("")
 
     if info:
-        if info.no_api_key:
-            lines.append("⚠️ <b>HIBP API ключ не настроен</b>")
+        if not info.check_performed:
+            lines.append("⚠️ <b>Проверка не выполнена</b>")
             lines.append("")
-            lines.append("Для проверки утечек требуется API ключ <b>Have I Been Pwned</b>.")
+            lines.append("Базы утечек сейчас не отвечают.")
+            lines.append("Отсутствие результата не значит, что адрес не засвечен.")
             lines.append("")
-            lines.append("📋 <b>Как получить:</b>")
-            lines.append("    1. Перейди на <a href=\"https://haveibeenpwned.com/API/Key\">haveibeenpwned.com/API/Key</a>")
-            lines.append("    2. Получи ключ (~$3.50/мес)")
-            lines.append("    3. Добавь в <code>.env</code>: <code>HIBP_API_KEY=твой_ключ</code>")
-            lines.append("")
-            lines.append("Пока ключ не настроен - проверяй вручную:")
-            lines.append(f"🔗 <a href=\"https://haveibeenpwned.com/account/{esc(result.query)}\">haveibeenpwned.com</a>")
+            lines.append("Попробуй через пару минут или проверь вручную:")
+            lines.append(
+                f"🔗 <a href=\"https://xposedornot.com/\">xposedornot.com</a>"
+            )
         elif not info.is_pwned:
-            lines.append("✅ <b>Отлично!</b>")
-            lines.append("Не найден в известных утечках данных.")
+            lines.append("✅ <b>Не найден в известных утечках</b>")
             lines.append("")
-            lines.append("💡 <i>Это не гарантирует полную безопасность,")
-            lines.append("но email не встречался в крупных утечках.</i>")
+            lines.append("💡 <i>Это не гарантия безопасности: публичные базы")
+            lines.append("охватывают далеко не все утечки, а часть данных")
+            lines.append("продаётся, а не выкладывается.</i>")
         else:
             lines.append(f"🚨 <b>Внимание! Найден в {info.breach_count} утечке(ах)</b>")
             lines.append("")
@@ -88,8 +86,9 @@ def format_leak_result(result: LeakScanResult) -> str:
                 flag_emoji = "🟢"
             lines.append(f"    {flag_emoji} {esc(flag.message)}")
 
-    # Источник
-    lines.append("")
-    lines.append("🔗 <i>Проверьте на <a href=\"https://haveibeenpwned.com\">haveibeenpwned.com</a></i>")
+    # Источник данных: пользователю полезно знать, чем именно проверяли
+    if info and info.check_performed and info.source:
+        lines.append("")
+        lines.append(f"<i>Источник: {esc(info.source)}</i>")
 
     return "\n".join(lines)

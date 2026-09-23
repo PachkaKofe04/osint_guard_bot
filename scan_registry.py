@@ -183,13 +183,14 @@ DIRECTIONS: Dict[str, Direction] = {
             icon="🔓",
             title="Утечки",
             category="personal",
-            prompt="Пришли email - проверю его по базам известных утечек.",
-            waiting="🔓 Проверяю на утечки...",
+            prompt=(
+                "Пришли email - проверю его по базам известных утечек: "
+                "где засветился, что украли и когда."
+            ),
+            waiting="🔓 Проверяю по базам утечек...",
             scan=_scan_leaks_with_key,
             format=format_leak_result,
             examples=("user@example.com",),
-            status=STATUS_LIMITED,
-            status_note="Нужен платный ключ Have I Been Pwned, сейчас он не настроен.",
             commands=("/leak",),
         ),
         Direction(
@@ -214,18 +215,15 @@ DIRECTIONS: Dict[str, Direction] = {
             title="Криптокошелёк",
             category="finance",
             prompt=(
-                "Пришли адрес кошелька - определю валюту и проверю по доступным "
-                "источникам.\n\nПоддерживаются BTC, ETH, LTC, DOGE, TRX, XRP, SOL, XMR, BCH."
+                "Пришли адрес кошелька - покажу баланс, активность и проверю "
+                "по базе скам-адресов.\n\n"
+                "Баланс доступен для BTC, ETH, LTC, DOGE, TRX, XRP, SOL.\n"
+                "Для Monero баланс не раскрывается самой сетью."
             ),
             waiting="💰 Проверяю кошелёк...",
             scan=scan_wallet,
             format=format_wallet_result,
             examples=("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",),
-            status=STATUS_LIMITED,
-            status_note=(
-                "Blockchair блокирует запросы (HTTP 430), база скам-адресов "
-                "CryptoScamDB не отвечает. Баланс и скам-проверка недоступны."
-            ),
             commands=("/wallet",),
         ),
         Direction(

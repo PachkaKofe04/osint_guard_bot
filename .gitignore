@@ -22,7 +22,7 @@ env/
 .claude/
 *~
 
-# Claude instructions (local only)
+# Локальные рабочие заметки и инструкции
 CLAUDE.md
 tasks/
 
@@ -51,3 +51,6 @@ status.md
 .coverage
 .pytest_cache/
 htmlcov/
+
+# Скачанные базы угроз и данные мониторинга
+data/

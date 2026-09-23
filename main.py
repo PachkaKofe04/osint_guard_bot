@@ -26,6 +26,7 @@ from handlers.scan_flow import router as scan_flow_router
 from middlewares.logging import LoggingMiddleware
 from middlewares.rate_limit import RateLimitMiddleware
 from monitoring.scheduler import monitor_loop
+from services.threat_feeds import feeds_loop
 from monitoring.storage import MonitorStorage
 from scan_registry import DIRECTIONS
 
@@ -162,16 +163,19 @@ async def main() -> None:
 
     log.info("Bot starting polling...")
 
-    monitor_task: asyncio.Task | None = None
+    background: list[asyncio.Task] = []
     try:
-        monitor_task = asyncio.create_task(monitor_loop(bot, monitor_storage))
+        # Базы угроз: поднимаются с диска мгновенно, затем обновляются по кругу
+        background.append(asyncio.create_task(feeds_loop()))
+        background.append(asyncio.create_task(monitor_loop(bot, monitor_storage)))
         polling_task = asyncio.create_task(dp.start_polling(bot))
         await polling_task
     except asyncio.CancelledError:
         log.info("Polling cancelled")
     finally:
-        if monitor_task and not monitor_task.done():
-            monitor_task.cancel()
+        for task in background:
+            if not task.done():
+                task.cancel()
         log.info("Shutting down bot...")
         await bot.session.close()
         log.info("Bot shutdown complete")

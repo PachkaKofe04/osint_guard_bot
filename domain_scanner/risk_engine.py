@@ -285,8 +285,10 @@ def calculate_risk(
 
     # SSL анализ - улучшенная логика
     if ssl:
-        # SSL сертификат как индикатор возраста домена
-        if ssl.first_seen:
+        # SSL сертификат как индикатор возраста домена.
+        # Только по полной истории: резервный источник отдаёт лишь последние
+        # выпуски, и по ним любой сайт выглядел бы созданным на днях.
+        if ssl.first_seen and ssl.history_complete:
             fs = ssl.first_seen
             if fs.tzinfo is None:
                 fs = fs.replace(tzinfo=timezone.utc)

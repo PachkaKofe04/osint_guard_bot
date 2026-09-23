@@ -11,7 +11,9 @@ from utils.risk_scoring import add_risk_flag, calculate_risk_score
 class WalletRiskWeight:
     """Веса рисков для кошельков."""
     # Высокие риски
-    KNOWN_SCAM = 6                # Известный скам-адрес
+    # Подтверждённый скам обязан давать HIGH при любых сигналах доверия.
+    # При весе 6 бонус за историю кошелька снижал вердикт до «Средний риск».
+    KNOWN_SCAM = 10               # Известный скам-адрес
     INVALID_FORMAT = 3            # Невалидный формат
 
     # Средние риски
@@ -76,6 +78,27 @@ def calculate_wallet_risk(info: Optional[WalletInfo]) -> Tuple[RiskLevel, List[R
             RiskLevel.HIGH,
             f"⚠️ ИЗВЕСТНЫЙ СКАМ-АДРЕС! Метки: {labels}",
             WalletRiskWeight.KNOWN_SCAM,
+        )
+    elif not info.scam_check_performed:
+        # База скама не загружена. Молчать об этом нельзя: пользователь
+        # решит, что адрес проверили и он чист. Вес нулевой - это не признак
+        # риска, а признак неполноты проверки.
+        add_risk_flag(
+            flags,
+            "SCAM_CHECK_UNAVAILABLE",
+            RiskLevel.MEDIUM,
+            "База скам-адресов недоступна - проверка не выполнялась",
+            0,
+        )
+
+    # Баланс недоступен по устройству сети, а не из-за сбоя
+    if not info.balance_available and info.is_valid:
+        add_risk_flag(
+            flags,
+            "BALANCE_NOT_AVAILABLE",
+            RiskLevel.LOW,
+            f"{info.currency}: баланс по адресу не раскрывается сетью",
+            0,
         )
 
     # Известная биржа - доверие
@@ -147,17 +170,22 @@ def calculate_wallet_risk(info: Optional[WalletInfo]) -> Tuple[RiskLevel, List[R
                 "HIGH_ACTIVITY",
                 RiskLevel.LOW,
                 f"Высокая активность: {info.tx_count}+ транзакций",
-                WalletRiskWeight.ESTABLISHED_WALLET,
+                # Для скам-адреса история не признак добросовестности:
+                # у активных дрейнеров транзакций как раз много
+                0 if info.is_scam else WalletRiskWeight.ESTABLISHED_WALLET,
             )
 
-    # Смарт-контракт (ETH)
+    # Тип адреса (ETH)
     if info.is_contract:
+        name = f" ({info.contract_name})" if info.contract_name else ""
         add_risk_flag(
-            flags,
-            "SMART_CONTRACT",
-            RiskLevel.LOW,
-            "Это смарт-контракт",
-            0,
+            flags, "SMART_CONTRACT", RiskLevel.LOW,
+            f"Это смарт-контракт{name}", 0,
+        )
+    elif info.is_smart_account:
+        add_risk_flag(
+            flags, "SMART_ACCOUNT", RiskLevel.LOW,
+            "Кошелёк со смарт-аккаунтом (EIP-7702)", 0,
         )
 
     # Рассчитываем итоговый риск

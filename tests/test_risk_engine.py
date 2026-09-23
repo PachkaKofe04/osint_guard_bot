@@ -214,3 +214,57 @@ class TestCalculateRisk:
         level, flags, score = calculate_risk(None, None, None, http)
 
         assert any(f.code == "MINIMAL_ROBOTS" for f in flags)
+
+
+class TestSslHistoryCompleteness:
+    """
+    Возраст домена по сертификатам считается только при полной истории.
+
+    Резервный источник (certspotter) отдаёт лишь последние выпуски. Если
+    судить по ним, у google.com first_seen окажется двухмесячной давности,
+    и каждый домен получит флаг «свежий сертификат» - признак фишинга.
+    """
+
+    @staticmethod
+    def _codes(ssl_info):
+        from domain_scanner.risk_engine import calculate_risk
+
+        _level, flags, _score = calculate_risk(None, None, ssl_info, None, [], None)
+        return {f.code for f in flags}
+
+    def test_fresh_cert_flag_requires_full_history(self):
+        from datetime import datetime, timedelta, timezone
+
+        from domain_scanner.models import SslInfo
+
+        recent = datetime.now(timezone.utc) - timedelta(days=5)
+
+        partial = SslInfo(first_seen=recent, san_domains=["a.test"],
+                          history_complete=False)
+        assert "FRESH_SSL_CERT" not in self._codes(partial)
+
+        full = SslInfo(first_seen=recent, san_domains=["a.test"],
+                       history_complete=True)
+        assert "FRESH_SSL_CERT" in self._codes(full)
+
+    def test_old_cert_trust_requires_full_history(self):
+        from datetime import datetime, timedelta, timezone
+
+        from domain_scanner.models import SslInfo
+
+        ancient = datetime.now(timezone.utc) - timedelta(days=365 * 15)
+
+        partial = SslInfo(first_seen=ancient, san_domains=["a.test"],
+                          history_complete=False)
+        assert "SSL_VERY_OLD" not in self._codes(partial)
+
+    def test_san_analysis_works_on_partial_history(self):
+        """Состав SAN от полноты истории не зависит - его считать можно."""
+        from domain_scanner.models import SslInfo
+
+        partial = SslInfo(
+            san_domains=[f"s{i}.test" for i in range(10)],
+            history_complete=False,
+        )
+        codes = self._codes(partial)
+        assert any("SAN" in c for c in codes), codes

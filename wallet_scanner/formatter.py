@@ -52,12 +52,21 @@ def format_wallet_result(result: WalletScanResult) -> str:
             lines.append(f"💱 <b>Криптовалюта:</b> {esc(info.currency)}")
             lines.append("")
 
-            # Предупреждение о скаме
+            # Скам-проверка. Три исхода, и их нельзя путать:
+            # найден в базе / база доступна и адреса в ней нет / базы нет.
             if info.is_scam:
                 lines.append("🚨 <b>ВНИМАНИЕ: СКАМ-АДРЕС!</b>")
                 if info.scam_labels:
                     lines.append(f"    Метки: {esc(', '.join(info.scam_labels))}")
                 lines.append("    ⚠️ НЕ отправляйте средства на этот адрес!")
+                lines.append("")
+            elif info.scam_check_performed:
+                lines.append("✅ <b>Скам-базы:</b> адрес не числится")
+                lines.append("")
+            else:
+                lines.append("⚠️ <b>Скам-проверка не выполнена</b>")
+                lines.append("    База скам-адресов сейчас недоступна.")
+                lines.append("    Отсутствие предупреждения не значит, что адрес чист.")
                 lines.append("")
 
             # Известная биржа/сервис
@@ -78,6 +87,19 @@ def format_wallet_result(result: WalletScanResult) -> str:
 
                 if info.balance_usd:
                     lines.append(f"    ≈ ${info.balance_usd:,.2f} USD")
+                if info.data_source:
+                    lines.append(f"    <i>источник: {esc(info.data_source)}</i>")
+                lines.append("")
+            elif not info.balance_available:
+                # Не сбой, а свойство сети: Monero не раскрывает балансы
+                lines.append(
+                    f"🔒 <b>Баланс недоступен:</b> сеть {esc(info.currency)} "
+                    f"не раскрывает балансы по адресу"
+                )
+                lines.append("")
+            else:
+                lines.append("⚠️ <b>Баланс получить не удалось</b>")
+                lines.append("    Источник данных не ответил, попробуй позже.")
                 lines.append("")
 
             # Транзакции + активность
@@ -90,9 +112,14 @@ def format_wallet_result(result: WalletScanResult) -> str:
             if info.tx_count is not None or info.first_seen or info.last_seen:
                 lines.append("")
 
-            # Смарт-контракт
+            # Тип адреса
             if info.is_contract:
-                lines.append("📜 <b>Тип:</b> Смарт-контракт")
+                name = f" ({esc(info.contract_name)})" if info.contract_name else ""
+                lines.append(f"📜 <b>Тип:</b> Смарт-контракт{name}")
+            elif info.is_smart_account:
+                lines.append(
+                    "📜 <b>Тип:</b> Кошелёк со смарт-аккаунтом (EIP-7702)"
+                )
                 lines.append("")
 
     # Флаги рисков

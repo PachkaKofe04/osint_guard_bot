@@ -126,7 +126,7 @@ class RateLimitMiddleware(BaseMiddleware):
         user_id = message.from_user.id
 
         # Администраторы не ограничены rate limit
-        if user_id in settings.ADMIN_IDS:
+        if user_id in settings.admin_ids:
             return await handler(event, data)
 
         if not self._is_scan_request(message):

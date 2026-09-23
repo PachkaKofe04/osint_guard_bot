@@ -42,6 +42,19 @@ def calculate_leak_risk(info: Optional[LeakInfo]) -> Tuple[RiskLevel, List[RiskF
         risk_score = calculate_risk_score(flags)
         return risk_score.level, flags, risk_score.score
 
+    # Проверка не выполнялась: источник не ответил.
+    # Говорить «не найден в утечках» нельзя - мы ничего не искали.
+    if not info.check_performed:
+        add_risk_flag(
+            flags,
+            "LEAK_CHECK_UNAVAILABLE",
+            RiskLevel.MEDIUM,
+            "Базы утечек недоступны - проверка не выполнялась",
+            0,
+        )
+        risk_score = calculate_risk_score(flags)
+        return risk_score.level, flags, risk_score.score
+
     # Нет утечек - отлично
     if not info.is_pwned:
         add_risk_flag(

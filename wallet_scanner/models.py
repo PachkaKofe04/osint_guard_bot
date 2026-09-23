@@ -30,9 +30,25 @@ class WalletInfo(BaseModel):
     scam_reports: int = 0
     scam_labels: List[str] = []  # Метки: phishing, scam, hack, etc.
 
+    # Была ли скам-проверка выполнена на самом деле.
+    # Без этого поля недоступная база превращалась в вердикт «скам не обнаружен»:
+    # бот уверенно говорил «чисто», хотя не проверял ничего.
+    scam_check_performed: bool = False
+
+    # Возможно ли получить баланс для этой монеты в принципе.
+    # Для Monero - нет: протокол не раскрывает балансы по адресу.
+    balance_available: bool = True
+    # Откуда взяты данные блокчейна: mempool.space, Blockscout, BlockCypher, ...
+    data_source: Optional[str] = None
+
     # Связанные сервисы
     exchange_name: Optional[str] = None  # Если адрес принадлежит бирже
     is_contract: bool = False  # Для ETH - смарт-контракт
+    # Обычный кошелёк с делегированием EIP-7702 на смарт-аккаунт.
+    # Blockscout помечает такие как контракты, но для пользователя это
+    # не контракт, а его личный кошелёк с расширенными возможностями.
+    is_smart_account: bool = False
+    contract_name: Optional[str] = None
 
 
 class WalletScanResult(BaseModel):
