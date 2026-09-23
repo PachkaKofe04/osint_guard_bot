@@ -11,6 +11,7 @@ from username_scanner.scanner import scan_username
 from username_scanner.formatter import format_username_result, format_maigret_result
 from keyboards.username_kb import get_username_keyboard
 from services.maigret_service import maigret_search
+from utils.telegram_io import safe_answer, safe_edit
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ async def cmd_username(message: types.Message) -> None:
     parts = text.split(maxsplit=1)
 
     if len(parts) < 2:
-        await message.answer(
+        await safe_answer(message,
             "Укажи username для проверки.\n\n"
             "Пример:\n"
             "<code>/username john_doe</code>\n"
@@ -38,7 +39,7 @@ async def cmd_username(message: types.Message) -> None:
 
     raw_username = parts[1].strip()
 
-    waiting_msg = await message.answer(
+    waiting_msg = await safe_answer(message,
         "👤 Ищу username на платформах...\n"
         "Это может занять до 30 секунд."
     )
@@ -47,7 +48,7 @@ async def cmd_username(message: types.Message) -> None:
         result = await scan_username(raw_username)
     except Exception as e:
         log.error(f"[/username] Error scanning username: {e}")
-        await waiting_msg.edit_text(
+        await safe_edit(waiting_msg,
             "⚠️ Произошла ошибка при поиске username. Попробуй позже."
         )
         return
@@ -58,13 +59,13 @@ async def cmd_username(message: types.Message) -> None:
     if result.info and result.info.is_valid:
         username_clean = result.username
         keyboard = get_username_keyboard(username_clean)
-        await waiting_msg.edit_text(
+        await safe_edit(waiting_msg,
             result_text,
             reply_markup=keyboard,
             disable_web_page_preview=True,
         )
     else:
-        await waiting_msg.edit_text(result_text, disable_web_page_preview=True)
+        await safe_edit(waiting_msg, result_text, disable_web_page_preview=True)
 
 
 @router.callback_query(F.data.startswith("maigret:"))
@@ -83,7 +84,7 @@ async def callback_maigret(callback: types.CallbackQuery) -> None:
     except Exception:
         pass
 
-    waiting_msg = await callback.message.answer(
+    waiting_msg = await safe_answer(callback.message,
         f"🔬 Запускаю Maigret для <code>@{username}</code>...\n"
         "Проверяю ~500 платформ, это займёт до 90 секунд."
     )
@@ -92,11 +93,11 @@ async def callback_maigret(callback: types.CallbackQuery) -> None:
         hits, total_checked = await maigret_search(username)
     except Exception as e:
         log.error(f"[Maigret callback] Error for {username}: {e}")
-        await waiting_msg.edit_text("⚠️ Ошибка при запуске Maigret. Попробуй позже.")
+        await safe_edit(waiting_msg, "⚠️ Ошибка при запуске Maigret. Попробуй позже.")
         return
 
     result_text = format_maigret_result(username, hits, total_checked)
-    await waiting_msg.edit_text(result_text, disable_web_page_preview=True)
+    await safe_edit(waiting_msg, result_text, disable_web_page_preview=True)
 
     # Если результатов много — отправляем полный список файлом
     if len(hits) > 50:

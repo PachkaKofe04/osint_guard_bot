@@ -1,4 +1,5 @@
 # domain_scanner/formatter.py
+from utils.safe_html import esc
 from typing import List
 
 from domain_scanner.models import DomainScanResult
@@ -56,7 +57,7 @@ def format_summary(result: DomainScanResult) -> str:
     top_flags: List[RiskFlag] = result.flags[:3]
     if top_flags:
         flags_str = "\n".join(
-            f"{_flag_emoji(f.level)} ({'+' if f.weight >= 0 else ''}{f.weight}) {f.message}"
+            f"{_flag_emoji(f.level)} ({'+' if f.weight >= 0 else ''}{f.weight}) {esc(f.message)}"
             for f in top_flags
         )
     else:
@@ -65,7 +66,7 @@ def format_summary(result: DomainScanResult) -> str:
     cache_note = " (из кэша)" if result.from_cache else ""
 
     text = (
-        f"{emoji} <b>Сканирование домена:</b> <code>{result.normalized_domain}</code>{cache_note}\n"
+        f"{emoji} <b>Сканирование домена:</b> <code>{esc(result.normalized_domain)}</code>{cache_note}\n"
         f"<b>Итоговый риск:</b> <b>{human}</b> ({score_view}/10)\n"
         f"<b>Оценка:</b> {comment}\n\n"
         f"<b>Основные признаки:</b>\n{flags_str}"
@@ -81,7 +82,7 @@ def format_details(result: DomainScanResult) -> str:
     score_view = _score_for_view(result.score)
     comment = _score_comment(result.score)
 
-    lines.append(f"{emoji} <b>Подробный отчёт по домену</b> <code>{result.normalized_domain}</code>")
+    lines.append(f"{emoji} <b>Подробный отчёт по домену</b> <code>{esc(result.normalized_domain)}</code>")
     lines.append(f"<b>Итоговый риск:</b> <b>{human}</b> ({score_view}/10)")
     lines.append(f"<b>Оценка:</b> {comment}")
     lines.append("")
@@ -92,10 +93,10 @@ def format_details(result: DomainScanResult) -> str:
     if w is None:
         lines.append("  Не удалось получить WHOIS-данные.")
     else:
-        lines.append(f"  Дата регистрации: {w.creation_date or '—'}")
-        lines.append(f"  Последнее обновление: {w.updated_date or '—'}")
-        lines.append(f"  Регистратор: {w.registrar or '—'}")
-        lines.append(f"  Страна: {w.country or '—'}")
+        lines.append(f"  Дата регистрации: {esc(w.creation_date or '—')}")
+        lines.append(f"  Последнее обновление: {esc(w.updated_date or '—')}")
+        lines.append(f"  Регистратор: {esc(w.registrar or '—')}")
+        lines.append(f"  Страна: {esc(w.country or '—')}")
         lines.append(f"  Приватность WHOIS: {'да' if w.is_privacy_protected else 'нет'}")
     lines.append("")
 
@@ -105,10 +106,10 @@ def format_details(result: DomainScanResult) -> str:
     if d is None:
         lines.append("  Не удалось получить DNS-записи.")
     else:
-        lines.append(f"  A: {', '.join(d.a_records) or '—'}")
-        lines.append(f"  NS: {', '.join(d.ns_records) or '—'}")
-        lines.append(f"  MX: {', '.join(d.mx_records) or '—'}")
-        lines.append(f"  TXT: {', '.join(d.txt_records) or '—'}")
+        lines.append(f"  A: {esc(', '.join(d.a_records) or '—')}")
+        lines.append(f"  NS: {esc(', '.join(d.ns_records) or '—')}")
+        lines.append(f"  MX: {esc(', '.join(d.mx_records) or '—')}")
+        lines.append(f"  TXT: {esc(', '.join(d.txt_records) or '—')}")
     lines.append("")
 
     # IP / Hosting enrichment
@@ -117,10 +118,10 @@ def format_details(result: DomainScanResult) -> str:
         lines.append("  Нет данных по IP.")
     else:
         for p in result.ip_profiles[:5]:
-            lines.append(f"  IP: {p.ip}")
-            lines.append(f"    Страна/город: {(p.country or '—')} / {(p.city or '—')}")
-            lines.append(f"    ISP/ORG: {(p.isp or '—')} / {(p.org or '—')}")
-            lines.append(f"    ASN: {(p.asn or '—')} ({p.asname or '—'})")
+            lines.append(f"  IP: {esc(p.ip)}")
+            lines.append(f"    Страна/город: {esc((p.country or '—'))} / {esc((p.city or '—'))}")
+            lines.append(f"    ISP/ORG: {esc((p.isp or '—'))} / {esc((p.org or '—'))}")
+            lines.append(f"    ASN: {esc((p.asn or '—'))} ({esc(p.asname or '—')})")
             if p.proxy is not None:
                 lines.append(f"    Proxy/VPN: {'да' if p.proxy else 'нет'}")
             if p.hosting is not None:
@@ -144,10 +145,10 @@ def format_details(result: DomainScanResult) -> str:
     if s is None:
         lines.append("  Не удалось получить данные сертификатов.")
     else:
-        lines.append(f"  first_seen: {s.first_seen or '—'}")
-        lines.append(f"  last_seen: {s.last_seen or '—'}")
-        lines.append(f"  Выдающие центры: {', '.join(s.issuers) or '—'}")
-        lines.append(f"  SAN-домены: {', '.join(s.san_domains) or '—'}")
+        lines.append(f"  first_seen: {esc(s.first_seen or '—')}")
+        lines.append(f"  last_seen: {esc(s.last_seen or '—')}")
+        lines.append(f"  Выдающие центры: {esc(', '.join(s.issuers) or '—')}")
+        lines.append(f"  SAN-домены: {esc(', '.join(s.san_domains) or '—')}")
     lines.append("")
 
     # HTTP
@@ -156,12 +157,12 @@ def format_details(result: DomainScanResult) -> str:
     if h is None:
         lines.append("  Сайт не ответил по HTTP/HTTPS.")
     else:
-        lines.append(f"  Проверенный URL: {h.url_checked or '—'}")
-        lines.append(f"  Server: {h.server or '—'}")
-        lines.append(f"  Via: {h.via or '—'}")
-        lines.append(f"  X-Powered-By: {h.x_powered_by or '—'}")
-        lines.append(f"  cf-ray: {h.cf_ray or '—'}")
-        lines.append(f"  cf-cache-status: {h.cf_cache_status or '—'}")
+        lines.append(f"  Проверенный URL: {esc(h.url_checked or '—')}")
+        lines.append(f"  Server: {esc(h.server or '—')}")
+        lines.append(f"  Via: {esc(h.via or '—')}")
+        lines.append(f"  X-Powered-By: {esc(h.x_powered_by or '—')}")
+        lines.append(f"  cf-ray: {esc(h.cf_ray or '—')}")
+        lines.append(f"  cf-cache-status: {esc(h.cf_cache_status or '—')}")
         lines.append(f"  robots.txt: {'есть' if h.robots_exists else 'нет'}")
         if h.robots_exists:
             lines.append(f"  Disallow: / : {'да' if h.robots_disallow_all else 'нет'}")
@@ -179,7 +180,7 @@ def format_details(result: DomainScanResult) -> str:
             weight = f.weight
             total_weight += weight
             sign = "+" if weight >= 0 else ""
-            lines.append(f"  {_flag_emoji(f.level)} ({sign}{weight}) {f.code}: {f.message}")
+            lines.append(f"  {_flag_emoji(f.level)} ({sign}{weight}) {esc(f.code)}: {esc(f.message)}")
 
         lines.append("")
         lines.append(f"<b>Суммарный вес флагов:</b> {total_weight}")

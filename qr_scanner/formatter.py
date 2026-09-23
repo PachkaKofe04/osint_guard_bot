@@ -1,5 +1,6 @@
 # qr_scanner/formatter.py
 """Форматирование результатов QR сканера для Telegram."""
+from utils.safe_html import esc
 from qr_scanner.models import QrScanResult, QrContentType
 from utils.risk_types import get_risk_emoji, get_risk_label, RiskLevel
 
@@ -64,10 +65,10 @@ def format_qr_result(result: QrScanResult) -> str:
             _format_crypto_content(info, lines)
 
         elif info.content_type == QrContentType.EMAIL:
-            lines.append(f"<b>Email:</b> <code>{info.email}</code>")
+            lines.append(f"<b>Email:</b> <code>{esc(info.email)}</code>")
 
         elif info.content_type == QrContentType.PHONE:
-            lines.append(f"<b>Телефон:</b> <code>{info.phone}</code>")
+            lines.append(f"<b>Телефон:</b> <code>{esc(info.phone)}</code>")
 
         elif info.content_type == QrContentType.GEO:
             lines.append(f"<b>Координаты:</b>")
@@ -84,7 +85,7 @@ def format_qr_result(result: QrScanResult) -> str:
             if len(info.raw_data) > 200:
                 lines.append(f"<code>{info.raw_data[:200]}...</code>")
             else:
-                lines.append(f"<code>{info.raw_data}</code>")
+                lines.append(f"<code>{esc(info.raw_data)}</code>")
 
         else:  # TEXT и другие
             lines.append("<b>Содержимое:</b>")
@@ -92,7 +93,7 @@ def format_qr_result(result: QrScanResult) -> str:
             content = info.raw_data
             if len(content) > 500:
                 content = content[:500] + "..."
-            lines.append(f"<code>{content}</code>")
+            lines.append(f"<code>{esc(content)}</code>")
 
         lines.append("")
 
@@ -113,7 +114,7 @@ def format_qr_result(result: QrScanResult) -> str:
                 flag_emoji = "🟡"
             else:
                 flag_emoji = "🟢"
-            lines.append(f"  {flag_emoji} {flag.message}")
+            lines.append(f"  {flag_emoji} {esc(flag.message)}")
 
     return "\n".join(lines)
 
@@ -121,11 +122,11 @@ def format_qr_result(result: QrScanResult) -> str:
 def _format_url_content(info, lines: list) -> None:
     """Форматирование URL контента."""
     lines.append(f"<b>Ссылка:</b>")
-    lines.append(f"<code>{info.url}</code>")
+    lines.append(f"<code>{esc(info.url)}</code>")
     lines.append("")
 
     if info.url_domain:
-        lines.append(f"<b>Домен:</b> {info.url_domain}")
+        lines.append(f"<b>Домен:</b> {esc(info.url_domain)}")
 
     # Предупреждения
     warnings = []
@@ -149,11 +150,11 @@ def _format_wifi_content(info, lines: list) -> None:
     wifi = info.wifi
     if wifi:
         if wifi.ssid:
-            lines.append(f"<b>Сеть:</b> {wifi.ssid}")
+            lines.append(f"<b>Сеть:</b> {esc(wifi.ssid)}")
         if wifi.security:
-            lines.append(f"<b>Защита:</b> {wifi.security.upper()}")
+            lines.append(f"<b>Защита:</b> {esc(wifi.security.upper())}")
         if wifi.password:
-            lines.append(f"<b>Пароль:</b> <tg-spoiler>{wifi.password}</tg-spoiler>")
+            lines.append(f"<b>Пароль:</b> <tg-spoiler>{esc(wifi.password)}</tg-spoiler>")
         if wifi.hidden:
             lines.append("<i>Скрытая сеть</i>")
     else:
@@ -167,17 +168,17 @@ def _format_crypto_content(info, lines: list) -> None:
         addr = info.crypto_address
         if addr.startswith("0x"):
             crypto_type = "Ethereum"
-            explorer = f"https://etherscan.io/address/{addr}"
+            explorer = f"https://etherscan.io/address/{esc(addr)}"
         elif addr.startswith(("1", "3", "bc1")):
             crypto_type = "Bitcoin"
-            explorer = f"https://www.blockchain.com/btc/address/{addr}"
+            explorer = f"https://www.blockchain.com/btc/address/{esc(addr)}"
         else:
             crypto_type = "Криптовалюта"
             explorer = None
 
-        lines.append(f"<b>Тип:</b> {crypto_type}")
+        lines.append(f"<b>Тип:</b> {esc(crypto_type)}")
         lines.append(f"<b>Адрес:</b>")
-        lines.append(f"<code>{addr}</code>")
+        lines.append(f"<code>{esc(addr)}</code>")
 
         if info.crypto_amount:
             lines.append(f"<b>Сумма:</b> {info.crypto_amount}")
@@ -187,4 +188,4 @@ def _format_crypto_content(info, lines: list) -> None:
 
         if explorer:
             lines.append("")
-            lines.append(f"🔍 <a href=\"{explorer}\">Проверить адрес</a>")
+            lines.append(f"🔍 <a href=\"{esc(explorer)}\">Проверить адрес</a>")

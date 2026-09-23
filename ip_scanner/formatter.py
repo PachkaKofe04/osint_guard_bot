@@ -1,5 +1,6 @@
 # ip_scanner/formatter.py
 """Форматирование результатов сканирования IP для Telegram."""
+from utils.safe_html import esc
 from ip_scanner.models import IpScanResult
 from utils.risk_types import get_risk_emoji, get_risk_label, RiskLevel
 
@@ -20,7 +21,7 @@ def format_ip_result(result: IpScanResult) -> str:
 
     lines = []
     lines.append(f"🔍 <b>Анализ IP адреса</b>")
-    lines.append(f"<code>{result.ip}</code>")
+    lines.append(f"<code>{esc(result.ip)}</code>")
     lines.append("")
 
     # Риск
@@ -48,8 +49,8 @@ def format_ip_result(result: IpScanResult) -> str:
                     location_parts.append(info.city)
                 location_parts.append(info.country)
                 if info.country_code:
-                    location_parts.append(f"({info.country_code})")
-                lines.append(f"    {' '.join(location_parts)}")
+                    location_parts.append(f"({esc(info.country_code)})")
+                lines.append(f"    {esc(' '.join(location_parts))}")
             else:
                 lines.append("    Не определено")
             lines.append("")
@@ -57,13 +58,13 @@ def format_ip_result(result: IpScanResult) -> str:
             # Сетевая информация
             lines.append("🌐 <b>Сетевая информация:</b>")
             if info.isp:
-                lines.append(f"    ISP: {info.isp}")
+                lines.append(f"    ISP: {esc(info.isp)}")
             if info.org:
-                lines.append(f"    Организация: {info.org}")
+                lines.append(f"    Организация: {esc(info.org)}")
             if info.asn:
-                lines.append(f"    ASN: {info.asn}")
+                lines.append(f"    ASN: {esc(info.asn)}")
             if info.asname:
-                lines.append(f"    AS Name: {info.asname}")
+                lines.append(f"    AS Name: {esc(info.asname)}")
             lines.append("")
 
             # Тип подключения
@@ -89,12 +90,14 @@ def format_ip_result(result: IpScanResult) -> str:
 
             # Репутация
             if info.abuse_score is not None or info.is_blacklisted:
-                lines.append("⚡ <b>Репутация:</b>")
+                lines.append("⚡ <b>Репутация (AbuseIPDB):</b>")
                 if info.abuse_score is not None:
                     abuse_emoji = "🔴" if info.abuse_score > 50 else "🟡" if info.abuse_score > 25 else "🟢"
                     lines.append(f"    {abuse_emoji} Abuse Score: {info.abuse_score}%")
                 if info.is_blacklisted:
-                    lines.append("    🚫 IP в чёрном списке")
+                    lines.append("    🚫 IP в чёрном списке (abuse ≥75%)")
+                if info.threat_types:
+                    lines.append(f"    📌 Тип: {info.threat_types[0]}")
                 lines.append("")
 
     # OTX репутация
@@ -118,6 +121,6 @@ def format_ip_result(result: IpScanResult) -> str:
                 flag_emoji = "🟡"
             else:
                 flag_emoji = "🟢"
-            lines.append(f"    {flag_emoji} {flag.message}")
+            lines.append(f"    {flag_emoji} {esc(flag.message)}")
 
     return "\n".join(lines)

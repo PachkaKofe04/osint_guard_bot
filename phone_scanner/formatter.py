@@ -1,4 +1,5 @@
 # phone_scanner/formatter.py
+from utils.safe_html import esc
 from typing import List
 
 from utils.risk_types import RiskLevel, get_risk_emoji
@@ -53,14 +54,14 @@ def format_phone_summary(result: PhoneScanResult) -> str:
     region = info.region or "не определён"
 
     lines: List[str] = []
-    lines.append(f"{emoji} <b>Проверка телефона:</b> <code>{result.phone}</code>")
+    lines.append(f"{emoji} <b>Проверка телефона:</b> <code>{esc(result.phone)}</code>")
     lines.append(f"<b>Итоговый риск:</b> <b>{human}</b> ({score_view}/10)")
     lines.append(f"<b>Уверенность:</b> {result.confidence}%")
-    lines.append(f"<b>Страна (по номеру):</b> {country}")
-    lines.append(f"<b>Оператор:</b> {operator}")
+    lines.append(f"<b>Страна (по номеру):</b> {esc(country)}")
+    lines.append(f"<b>Оператор:</b> {esc(operator)}")
     if info.is_virtual:
         lines.append("  ⚠️ Виртуальный оператор (MVNO) — возможен MNP")
-    lines.append(f"<b>Регион:</b> {region}")
+    lines.append(f"<b>Регион:</b> {esc(region)}")
     lines.append(f"<b>Оценка:</b> {comment}")
 
     if result.flags:
@@ -68,6 +69,6 @@ def format_phone_summary(result: PhoneScanResult) -> str:
         lines.append("<b>Детализация рисков:</b>")
         for f in result.flags[:5]:
             sign = "+" if f.weight >= 0 else ""
-            lines.append(f"  {_flag_emoji(f.level)} ({sign}{f.weight}) {f.message}")
+            lines.append(f"  {_flag_emoji(f.level)} ({sign}{f.weight}) {esc(f.message)}")
 
     return "\n".join(lines)

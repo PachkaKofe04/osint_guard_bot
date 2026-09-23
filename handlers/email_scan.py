@@ -7,6 +7,7 @@ from aiogram.filters import Command
 
 from email_scanner.scanner import scan_email
 from email_scanner.formatter import format_email_result
+from utils.telegram_io import safe_answer, safe_edit
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ async def cmd_email(message: types.Message) -> None:
     parts = text.split(maxsplit=1)
 
     if len(parts) < 2:
-        await message.answer(
+        await safe_answer(message,
             "Укажи email для проверки.\n\n"
             "Пример:\n"
             "<code>/email user@example.com</code>"
@@ -32,16 +33,16 @@ async def cmd_email(message: types.Message) -> None:
 
     raw_email = parts[1].strip()
 
-    waiting_msg = await message.answer("📧 Проверяю email...")
+    waiting_msg = await safe_answer(message, "📧 Проверяю email...")
 
     try:
         result = await scan_email(raw_email)
     except Exception as e:
         log.error(f"[/email] Error scanning email: {e}")
-        await waiting_msg.edit_text(
+        await safe_edit(waiting_msg,
             "⚠️ Произошла ошибка при проверке email. Попробуй позже."
         )
         return
 
     result_text = format_email_result(result)
-    await waiting_msg.edit_text(result_text)
+    await safe_edit(waiting_msg, result_text)

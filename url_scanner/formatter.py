@@ -1,5 +1,6 @@
 # url_scanner/formatter.py
 """Форматирование результатов сканирования URL для Telegram."""
+from utils.safe_html import esc
 from url_scanner.models import UrlScanResult
 from utils.risk_types import get_risk_emoji, RiskLevel
 
@@ -38,7 +39,7 @@ def format_url_result(result: UrlScanResult) -> str:
         # Сокращённая ссылка?
         if info.is_shortened:
             shortener = info.shortener_service or "неизвестный"
-            lines.append(f"<b>Сокращатель:</b> {shortener}")
+            lines.append(f"<b>Сокращатель:</b> {esc(shortener)}")
 
         # Домен
         if info.domain:
@@ -66,7 +67,7 @@ def format_url_result(result: UrlScanResult) -> str:
                 "🟡" if flag.level == RiskLevel.MEDIUM else "🟢"
             )
             weight_str = f"+{flag.weight}" if flag.weight > 0 else str(flag.weight)
-            lines.append(f"  {flag_emoji} {flag.message} ({weight_str})")
+            lines.append(f"  {flag_emoji} {esc(flag.message)} ({weight_str})")
 
     # Цепочка редиректов (если есть и не слишком длинная)
     if info and info.redirect_chain and len(info.redirect_chain) <= 5:

@@ -1,5 +1,6 @@
 # exif_scanner/formatter.py
 """Форматирование результатов EXIF для Telegram."""
+from utils.safe_html import esc
 from exif_scanner.models import ExifScanResult
 from utils.risk_types import get_risk_emoji, get_risk_label, RiskLevel
 
@@ -30,7 +31,7 @@ def format_exif_result(result: ExifScanResult) -> str:
 
     lines = []
     lines.append("📷 <b>Анализ метаданных изображения</b>")
-    lines.append(f"<code>{result.filename}</code>")
+    lines.append(f"<code>{esc(result.filename)}</code>")
     lines.append("")
 
     # Риск приватности
@@ -46,18 +47,24 @@ def format_exif_result(result: ExifScanResult) -> str:
         if info.image_width and info.image_height:
             lines.append(f"    Разрешение: {info.image_width}×{info.image_height}")
         if info.format:
-            lines.append(f"    Формат: {info.format}")
+            lines.append(f"    Формат: {esc(info.format)}")
         lines.append("")
 
         if not info.has_exif:
             lines.append("⚠️ <b>EXIF данные не найдены</b>")
             lines.append("")
-            lines.append("Скорее всего, Telegram сжал фото и удалил метаданные.")
-            lines.append("")
-            lines.append("📎 <b>Чтобы сохранить EXIF — отправь файлом:</b>")
-            lines.append("    • <b>Телефон:</b> Скрепка → Файл → выбери фото из галереи")
-            lines.append("    • <b>ПК:</b> Перетащи фото с зажатым <code>Shift</code>")
-            lines.append("      или при прикреплении выбери «Отправить без сжатия»")
+            if info.open_failed:
+                lines.append("Не удалось открыть файл. Возможные причины:")
+                lines.append("    • Формат не поддерживается")
+                lines.append("    • Файл повреждён")
+                lines.append("    • Отсутствуют зависимости (pillow-heif для HEIC)")
+            else:
+                lines.append("Возможные причины:")
+                lines.append("    • <b>Telegram сжал фото</b> и удалил метаданные")
+                lines.append("      → отправь <b>файлом</b> (Скрепка → Файл → выбери из галереи)")
+                lines.append("    • <b>iOS удалил геолокацию</b> перед отправкой")
+                lines.append("      → Настройки → Конфиденциальность → Службы геолокации → Камера → «При использовании»")
+                lines.append("    • Фото не содержит EXIF (скриншоты, обработанные фото)")
         else:
             # GPS
             if info.has_gps and info.gps:
@@ -77,47 +84,47 @@ def format_exif_result(result: ExifScanResult) -> str:
             if info.camera_make or info.camera_model:
                 lines.append("📱 <b>Устройство:</b>")
                 if info.camera_make:
-                    lines.append(f"    Производитель: {info.camera_make}")
+                    lines.append(f"    Производитель: {esc(info.camera_make)}")
                 if info.camera_model:
-                    lines.append(f"    Модель: {info.camera_model}")
+                    lines.append(f"    Модель: {esc(info.camera_model)}")
                 if info.lens_model:
-                    lines.append(f"    Объектив: {info.lens_model}")
+                    lines.append(f"    Объектив: {esc(info.lens_model)}")
                 lines.append("")
 
             # Дата
             if info.date_taken:
                 lines.append("📅 <b>Дата съёмки:</b>")
-                lines.append(f"    {info.date_taken}")
+                lines.append(f"    {esc(info.date_taken)}")
                 lines.append("")
 
             # Настройки камеры
             camera_settings = []
             if info.focal_length:
-                camera_settings.append(f"f={info.focal_length}")
+                camera_settings.append(f"f={esc(info.focal_length)}")
             if info.aperture:
-                camera_settings.append(f"F/{info.aperture}")
+                camera_settings.append(f"F/{esc(info.aperture)}")
             if info.iso:
                 camera_settings.append(f"ISO {info.iso}")
             if info.exposure_time:
-                camera_settings.append(f"{info.exposure_time}s")
+                camera_settings.append(f"{esc(info.exposure_time)}s")
 
             if camera_settings:
                 lines.append("⚙️ <b>Параметры съёмки:</b>")
-                lines.append(f"    {', '.join(camera_settings)}")
+                lines.append(f"    {esc(', '.join(camera_settings))}")
                 lines.append("")
 
             # Софт
             if info.software:
-                lines.append(f"💻 <b>ПО:</b> {info.software}")
+                lines.append(f"💻 <b>ПО:</b> {esc(info.software)}")
                 lines.append("")
 
             # Автор
             if info.artist or info.copyright:
                 lines.append("👤 <b>Автор:</b>")
                 if info.artist:
-                    lines.append(f"    {info.artist}")
+                    lines.append(f"    {esc(info.artist)}")
                 if info.copyright:
-                    lines.append(f"    © {info.copyright}")
+                    lines.append(f"    © {esc(info.copyright)}")
                 lines.append("")
 
     # Флаги рисков
@@ -130,7 +137,7 @@ def format_exif_result(result: ExifScanResult) -> str:
                 flag_emoji = "🟡"
             else:
                 flag_emoji = "🟢"
-            lines.append(f"    {flag_emoji} {flag.message}")
+            lines.append(f"    {flag_emoji} {esc(flag.message)}")
 
     # Рекомендации
     if info and info.has_exif and (info.has_gps or len(info.privacy_concerns) >= 2):

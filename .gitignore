@@ -43,3 +43,11 @@ Thumbs.db
 build/
 dist/
 *.egg-info/
+
+# Бортовой журнал проекта (локальный)
+status.md
+
+# Артефакты тестов
+.coverage
+.pytest_cache/
+htmlcov/

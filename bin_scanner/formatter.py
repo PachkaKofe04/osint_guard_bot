@@ -1,4 +1,5 @@
 # bin_scanner/formatter.py
+from utils.safe_html import esc
 from typing import List
 
 from utils.risk_types import RiskLevel, get_risk_emoji
@@ -50,7 +51,7 @@ def format_bin_summary(result: BinScanResult) -> str:
     info = result.info
 
     lines: List[str] = []
-    lines.append(f"{emoji} <b>Проверка BIN:</b> <code>{result.bin}</code>")
+    lines.append(f"{emoji} <b>Проверка BIN:</b> <code>{esc(result.bin)}</code>")
     lines.append(f"<b>Итоговый риск:</b> <b>{human}</b> ({score_view}/10)")
     lines.append(f"<b>Оценка:</b> {comment}")
     lines.append("")
@@ -74,6 +75,6 @@ def format_bin_summary(result: BinScanResult) -> str:
         lines.append("<b>Детализация рисков:</b>")
         for f in result.flags[:5]:
             sign = "+" if f.weight >= 0 else ""
-            lines.append(f"  {_flag_emoji(f.level)} ({sign}{f.weight}) {f.message}")
+            lines.append(f"  {_flag_emoji(f.level)} ({sign}{f.weight}) {esc(f.message)}")
 
     return "\n".join(lines)

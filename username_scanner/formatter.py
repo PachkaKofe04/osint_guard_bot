@@ -1,5 +1,6 @@
 # username_scanner/formatter.py
 """Форматирование результатов сканирования Username для Telegram."""
+from utils.safe_html import esc
 from typing import List, Tuple
 
 from username_scanner.models import UsernameScanResult
@@ -22,7 +23,7 @@ def format_username_result(result: UsernameScanResult) -> str:
 
     lines = []
     lines.append(f"👤 <b>Анализ Username</b>")
-    lines.append(f"<code>@{result.username}</code>")
+    lines.append(f"<code>@{esc(result.username)}</code>")
     lines.append("")
 
     # Риск
@@ -46,7 +47,7 @@ def format_username_result(result: UsernameScanResult) -> str:
                 lines.append("✅ <b>Найден на:</b>")
                 lines.append("<i>⚠️ Совпадение username не означает что это тот же человек</i>")
                 for p in found[:10]:  # Макс 10
-                    lines.append(f"    • <a href=\"{p.url}\">{p.platform}</a>")
+                    lines.append(f"    • <a href=\"{esc(p.url)}\">{esc(p.platform)}</a>")
                 if len(found) > 10:
                     lines.append(f"    ... и ещё {len(found) - 10}")
                 lines.append("")
@@ -56,7 +57,7 @@ def format_username_result(result: UsernameScanResult) -> str:
             if not_found and len(not_found) < 10:
                 lines.append("❌ <b>Не найден на:</b>")
                 for p in not_found[:5]:
-                    lines.append(f"    • {p.platform}")
+                    lines.append(f"    • {esc(p.platform)}")
                 if len(not_found) > 5:
                     lines.append(f"    ... и ещё {len(not_found) - 5}")
                 lines.append("")
@@ -71,7 +72,7 @@ def format_username_result(result: UsernameScanResult) -> str:
                 flag_emoji = "🟡"
             else:
                 flag_emoji = "🟢"
-            lines.append(f"    {flag_emoji} {flag.message}")
+            lines.append(f"    {flag_emoji} {esc(flag.message)}")
 
     return "\n".join(lines)
 
@@ -91,7 +92,7 @@ def format_maigret_result(
     """
     lines = []
     lines.append("🔬 <b>Углублённый поиск Maigret</b>")
-    lines.append(f"<code>@{username}</code>")
+    lines.append(f"<code>@{esc(username)}</code>")
     lines.append("")
 
     if total_checked == 0:
@@ -106,9 +107,9 @@ def format_maigret_result(
         lines.append("📋 <b>Найденные профили:</b>")
         for site_name, url in hits[:30]:
             if url:
-                lines.append(f"  • <a href=\"{url}\">{site_name}</a>")
+                lines.append(f"  • <a href=\"{esc(url)}\">{esc(site_name)}</a>")
             else:
-                lines.append(f"  • {site_name}")
+                lines.append(f"  • {esc(site_name)}")
         if len(hits) > 30:
             lines.append(f"  ... и ещё {len(hits) - 30}")
     else:

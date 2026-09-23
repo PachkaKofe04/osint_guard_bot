@@ -1,4 +1,5 @@
 # bin_scanner/scanner.py
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -25,7 +26,8 @@ def _normalize_bin(raw: str) -> str:
     return digits
 
 
-@retry_sync(max_attempts=3, backoff=2, exceptions=(requests.exceptions.RequestException,))
+# 2 попытки вместо 3 и backoff 1 с: прежняя настройка давала до ~18 с ожидания
+@retry_sync(max_attempts=2, backoff=1, exceptions=(requests.exceptions.RequestException,))
 def _fetch_bin_info(bin_code: str) -> Optional[BinInfo]:
     """
     Получить информацию о BIN из binlist.net API с retry механизмом.
@@ -132,3 +134,14 @@ def scan_bin(raw_bin: str) -> BinScanResult:
     )
 
     return result
+
+
+async def scan_bin_async(raw_bin: str) -> BinScanResult:
+    """
+    Async-обёртка над scan_bin.
+
+    scan_bin синхронна и ходит в сеть через requests. Прямой вызов из
+    async-хендлера замораживал event loop целиком (измерено 1.04 с на 404,
+    до ~18 с при таймаутах) — бот переставал отвечать всем пользователям.
+    """
+    return await asyncio.to_thread(scan_bin, raw_bin)

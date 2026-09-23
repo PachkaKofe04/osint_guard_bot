@@ -1,5 +1,6 @@
 # wallet_scanner/formatter.py
 """Форматирование результатов сканирования Wallet для Telegram."""
+from utils.safe_html import esc
 from wallet_scanner.models import WalletScanResult
 from utils.risk_types import get_risk_emoji, get_risk_label, RiskLevel
 
@@ -34,7 +35,7 @@ def format_wallet_result(result: WalletScanResult) -> str:
 
     lines = []
     lines.append(f"{currency_emoji} <b>Анализ криптокошелька</b>")
-    lines.append(f"<code>{result.address}</code>")
+    lines.append(f"<code>{esc(result.address)}</code>")
     lines.append("")
 
     # Риск
@@ -48,20 +49,20 @@ def format_wallet_result(result: WalletScanResult) -> str:
             lines.append("")
         else:
             # Криптовалюта
-            lines.append(f"💱 <b>Криптовалюта:</b> {info.currency}")
+            lines.append(f"💱 <b>Криптовалюта:</b> {esc(info.currency)}")
             lines.append("")
 
             # Предупреждение о скаме
             if info.is_scam:
                 lines.append("🚨 <b>ВНИМАНИЕ: СКАМ-АДРЕС!</b>")
                 if info.scam_labels:
-                    lines.append(f"    Метки: {', '.join(info.scam_labels)}")
+                    lines.append(f"    Метки: {esc(', '.join(info.scam_labels))}")
                 lines.append("    ⚠️ НЕ отправляйте средства на этот адрес!")
                 lines.append("")
 
             # Известная биржа/сервис
             if info.exchange_name:
-                lines.append(f"🏛️ <b>Известный адрес:</b> {info.exchange_name}")
+                lines.append(f"🏛️ <b>Известный адрес:</b> {esc(info.exchange_name)}")
                 lines.append("")
 
             # Баланс
@@ -71,9 +72,9 @@ def format_wallet_result(result: WalletScanResult) -> str:
                 elif info.currency == "ETH":
                     balance_str = f"{info.balance:.6f} ETH"
                 else:
-                    balance_str = f"{info.balance} {info.currency}"
+                    balance_str = f"{info.balance} {esc(info.currency)}"
 
-                lines.append(f"💰 <b>Баланс:</b> {balance_str}")
+                lines.append(f"💰 <b>Баланс:</b> {esc(balance_str)}")
 
                 if info.balance_usd:
                     lines.append(f"    ≈ ${info.balance_usd:,.2f} USD")
@@ -104,18 +105,18 @@ def format_wallet_result(result: WalletScanResult) -> str:
                 flag_emoji = "🟡"
             else:
                 flag_emoji = "🟢"
-            lines.append(f"    {flag_emoji} {flag.message}")
+            lines.append(f"    {flag_emoji} {esc(flag.message)}")
 
     # Ссылки на блокчейн-эксплореры
     EXPLORER_URLS = {
-        "BTC":  f"https://blockchair.com/bitcoin/address/{result.address}",
-        "ETH":  f"https://etherscan.io/address/{result.address}",
-        "LTC":  f"https://blockchair.com/litecoin/address/{result.address}",
-        "DOGE": f"https://blockchair.com/dogecoin/address/{result.address}",
-        "TRX":  f"https://tronscan.org/#/address/{result.address}",
-        "XRP":  f"https://xrpscan.com/account/{result.address}",
-        "SOL":  f"https://solscan.io/account/{result.address}",
-        "XMR":  f"https://xmrchain.net/search?value={result.address}",
+        "BTC":  f"https://blockchair.com/bitcoin/address/{esc(result.address)}",
+        "ETH":  f"https://etherscan.io/address/{esc(result.address)}",
+        "LTC":  f"https://blockchair.com/litecoin/address/{esc(result.address)}",
+        "DOGE": f"https://blockchair.com/dogecoin/address/{esc(result.address)}",
+        "TRX":  f"https://tronscan.org/#/address/{esc(result.address)}",
+        "XRP":  f"https://xrpscan.com/account/{esc(result.address)}",
+        "SOL":  f"https://solscan.io/account/{esc(result.address)}",
+        "XMR":  f"https://xmrchain.net/search?value={esc(result.address)}",
     }
     if info and info.is_valid and result.currency in EXPLORER_URLS:
         lines.append("")

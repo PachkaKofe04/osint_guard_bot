@@ -1,10 +1,13 @@
 # middlewares/rate_limit.py
-import time
 import logging
-from typing import Any, Awaitable, Callable, Dict, List
+import time
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from aiogram import BaseMiddleware
-from aiogram.types import Update, Message
+from aiogram.types import Message, Update
+
+from config import settings
+from utils.input_detect import triggers_scan
 
 log = logging.getLogger(__name__)
 
@@ -13,13 +16,28 @@ MAX_RATE_LIMIT_ENTRIES = 10000
 # Время жизни записи (в секундах) — после этого запись считается устаревшей
 ENTRY_TTL_SECONDS = 3600  # 1 час
 
+# Команды, которые ходят во внешние API. Лимитируются только с аргументом:
+# голое «/ip» печатает подсказку и никуда не ходит — квоту тратить незачем.
+SCAN_COMMANDS = {
+    "/scan", "/domain", "/phone", "/bin", "/url", "/email", "/ip",
+    "/user", "/username", "/wallet", "/leak", "/qr", "/monitor",
+}
+
 
 class RateLimitMiddleware(BaseMiddleware):
     """
-    Rate limit с burst allowance:
-    - Разрешает несколько быстрых запросов подряд (burst)
-    - Блокирует только при злоупотреблении (много запросов за короткое время)
-    - Автоматическая очистка устаревших записей
+    Rate limit с burst allowance.
+
+    Лимитируются ТОЛЬКО сообщения, реально порождающие обращения к внешним API:
+      - команда из SCAN_COMMANDS с аргументом;
+      - фото или документ (EXIF/QR);
+      - произвольный текст, который авто-детект опознал как цель скана.
+
+    Не лимитируются:
+      - нажатия inline-кнопок (callback_query) — это дешёвый edit_text.
+        Раньше они попадали в квоту, и меню умирало после 5 кликов;
+      - usage-подсказки («/ip» без аргумента);
+      - обычная переписка, на которую бот не запускает скан.
     """
 
     def __init__(
@@ -45,10 +63,8 @@ class RateLimitMiddleware(BaseMiddleware):
         self._last_cleanup = now
         cutoff = now - ENTRY_TTL_SECONDS
 
-        # Удаляем пользователей без активности
         stale_keys = []
         for uid, timestamps in self._request_history.items():
-            # Удаляем старые timestamp'ы
             recent = [ts for ts in timestamps if ts > cutoff]
             if recent:
                 self._request_history[uid] = recent
@@ -72,89 +88,73 @@ class RateLimitMiddleware(BaseMiddleware):
                 del self._request_history[uid]
             log.warning(f"[RateLimit] Emergency cleanup: removed {to_remove} oldest entries")
 
+    @staticmethod
+    def _is_scan_request(message: Message) -> bool:
+        """Породит ли это сообщение реальное обращение к внешним API."""
+        # Медиа всегда идёт в сканер (EXIF или QR)
+        if message.photo or message.document:
+            return True
+
+        text = (message.text or "").strip()
+        if not text:
+            return False
+
+        if text.startswith("/"):
+            parts = text.split(maxsplit=1)
+            command = parts[0].split("@", 1)[0].lower()
+            has_argument = len(parts) > 1 and bool(parts[1].strip())
+            return command in SCAN_COMMANDS and has_argument
+
+        return triggers_scan(text)
+
     async def __call__(
         self,
         handler: Callable[[Update, Dict[str, Any]], Awaitable[Any]],
         event: Update,
         data: Dict[str, Any],
     ) -> Any:
-        # Периодическая очистка устаревших записей
         self._cleanup_stale_entries()
 
-        message: Message | None = None
-        user_id: int | None = None
-
-        if event.message:
-            message = event.message
-            if message.from_user is not None:
-                user_id = message.from_user.id
-        elif event.callback_query:
-            # Для callback берём from_user у самого callback'а — это кликнувший юзер.
-            # event.callback_query.message.from_user — это БОТ (отправитель кнопки).
-            if event.callback_query.from_user is not None:
-                user_id = event.callback_query.from_user.id
-            message = event.callback_query.message
-
-        if user_id is None:
+        # Нажатия кнопок не лимитируем: это навигация, а не скан.
+        if event.callback_query is not None:
             return await handler(event, data)
 
-        text = (message.text if message else None) or ""
-        lower = text.lower()
+        message: Optional[Message] = event.message or event.edited_message
+        if message is None or message.from_user is None:
+            return await handler(event, data)
 
-        # Команды, требующие rate limiting
-        is_heavy_command = (
-            lower.startswith("/scan")
-            or lower.startswith("/phone")
-            or lower.startswith("/bin")
-            or lower.startswith("/url")
-            or lower.startswith("/email")
-            or lower.startswith("/ip")
-            or lower.startswith("/user")
-            or lower.startswith("/wallet")
-            or lower.startswith("/leak")
-            or lower.startswith("/qr")
-        )
+        user_id = message.from_user.id
 
-        # Фото и документы тоже требуют rate limiting (EXIF/QR сканы)
-        is_media = bool(message) and (message.photo is not None or message.document is not None)
+        # Администраторы не ограничены rate limit
+        if user_id in settings.ADMIN_IDS:
+            return await handler(event, data)
 
-        # Обычный текст без команды — auto-detect (IP, домен, email, username)
-        is_plain_text = bool(text) and not text.startswith("/")
-
-        if not is_heavy_command and not is_media and not is_plain_text:
+        if not self._is_scan_request(message):
             return await handler(event, data)
 
         now = time.time()
 
-        # Получаем историю запросов пользователя
-        if user_id not in self._request_history:
-            self._request_history[user_id] = []
-
-        history = self._request_history[user_id]
-
+        history = self._request_history.setdefault(user_id, [])
         # Удаляем запросы старше окна
         history = [ts for ts in history if now - ts < self.window_seconds]
         self._request_history[user_id] = history
 
-        # Проверяем burst limit
         if len(history) >= self.burst_limit:
-            # Пользователь уже сделал много запросов, проверяем интервал
-            last_request = history[-1]
-            delta = now - last_request
-
+            delta = now - history[-1]
             if delta < self.min_interval:
                 wait = int(self.min_interval - delta) + 1
-                if message is not None:
-                    try:
-                        await message.answer(
-                            f"⏱ Слишком много запросов подряд.\n"
-                            f"Подожди ещё {wait} сек перед следующим сканом."
-                        )
-                    except Exception:
-                        pass
-                log.info(f"[RateLimit] Blocked user_id={user_id} ({len(history)} requests in {self.window_seconds}s)")
+                try:
+                    await message.answer(
+                        f"⏱ Слишком много проверок подряд.\n"
+                        f"Подожди ещё {wait} сек перед следующим сканом."
+                    )
+                except Exception:
+                    log.debug("[RateLimit] Не удалось отправить уведомление о лимите")
+                log.info(
+                    f"[RateLimit] Blocked user_id={user_id} "
+                    f"({len(history)} scans in {self.window_seconds}s)"
+                )
                 return
 
-        # Добавляем текущий запрос в историю
         history.append(now)
         return await handler(event, data)

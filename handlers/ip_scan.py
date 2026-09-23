@@ -7,6 +7,7 @@ from aiogram.filters import Command
 
 from ip_scanner.scanner import scan_ip
 from ip_scanner.formatter import format_ip_result
+from utils.telegram_io import safe_answer, safe_edit
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ async def cmd_ip(message: types.Message) -> None:
     parts = text.split(maxsplit=1)
 
     if len(parts) < 2:
-        await message.answer(
+        await safe_answer(message,
             "Укажи IP адрес для проверки.\n\n"
             "Пример:\n"
             "<code>/ip 8.8.8.8</code>\n"
@@ -33,16 +34,16 @@ async def cmd_ip(message: types.Message) -> None:
 
     raw_ip = parts[1].strip()
 
-    waiting_msg = await message.answer("🔍 Проверяю IP адрес...")
+    waiting_msg = await safe_answer(message, "🔍 Проверяю IP адрес...")
 
     try:
         result = await scan_ip(raw_ip)
     except Exception as e:
         log.error(f"[/ip] Error scanning IP: {e}")
-        await waiting_msg.edit_text(
+        await safe_edit(waiting_msg,
             "⚠️ Произошла ошибка при проверке IP. Попробуй позже."
         )
         return
 
     result_text = format_ip_result(result)
-    await waiting_msg.edit_text(result_text)
+    await safe_edit(waiting_msg, result_text)

@@ -1,5 +1,6 @@
 # exif_scanner/scanner.py
 """Основной модуль извлечения EXIF данных."""
+import asyncio
 import io
 import logging
 from datetime import datetime, timezone
@@ -16,9 +17,11 @@ log = logging.getLogger(__name__)
 # --- Регистрация плагинов Pillow ---
 
 # HEIC/HEIF/AVIF (iPhone, Apple, современные форматы)
+HEIF_AVAILABLE = False
 try:
     from pillow_heif import register_heif_opener
     register_heif_opener()
+    HEIF_AVAILABLE = True
     log.info("[EXIF] pillow-heif: HEIC/HEIF/AVIF поддерживаются")
 except ImportError:
     log.warning("[EXIF] pillow-heif не установлен (pip install pillow-heif)")
@@ -81,21 +84,51 @@ def _open_image(image_data: bytes, filename: str = "") -> Optional[Image.Image]:
     return None
 
 
+def _parse_exif_obj(exif_obj) -> Dict[str, Any]:
+    """Парсит объект Exif/IFD в dict с именами тегов. Всегда добавляет GPS sub-IFD."""
+    result: Dict[str, Any] = {}
+    if not exif_obj:
+        return result
+    for tag_id, value in exif_obj.items():
+        tag = TAGS.get(tag_id, tag_id)
+        result[tag] = value
+    # GPS хранится в sub-IFD (0x8825). Итерация items() в Pillow возвращает
+    # только integer-offset для sub-IFD указателей, а не реальные данные.
+    # get_ifd() возвращает разрешённый словарь GPS тегов.
+    try:
+        gps_ifd = exif_obj.get_ifd(0x8825)
+        if gps_ifd:
+            result["GPSInfo"] = gps_ifd
+    except (AttributeError, Exception):
+        pass
+    return result
+
+
 def _get_exif_data(image: Image.Image) -> Dict[str, Any]:
     """Извлекает EXIF данные из изображения."""
-    exif_data = {}
+    exif_data: Dict[str, Any] = {}
 
+    # Попытка 1: современный API Pillow (работает для JPEG, PNG, TIFF, WebP, HEIF)
     try:
-        # Современный API Pillow (6.0+), работает для JPEG, TIFF, PNG, WebP
         raw_exif = image.getexif()
         if raw_exif:
-            for tag_id, value in raw_exif.items():
-                tag = TAGS.get(tag_id, tag_id)
-                exif_data[tag] = value
+            exif_data = _parse_exif_obj(raw_exif)
     except Exception:
         pass
 
-    # Fallback: устаревший JPEG-only метод
+    # Попытка 2: raw bytes из image.info['exif'] — важно для HEIC/HEIF
+    # pillow_heif кладёт EXIF сюда, и Image.Exif().load() корректно его разбирает
+    if not exif_data:
+        try:
+            exif_bytes = image.info.get("exif")
+            if exif_bytes:
+                parsed = Image.Exif()
+                parsed.load(exif_bytes)
+                exif_data = _parse_exif_obj(parsed)
+        except Exception:
+            pass
+
+    # Попытка 3: устаревший JPEG-only метод (fallback для старых версий Pillow)
     if not exif_data:
         try:
             raw_exif = image._getexif()  # type: ignore[attr-defined]
@@ -107,6 +140,27 @@ def _get_exif_data(image: Image.Image) -> Dict[str, Any]:
             log.warning(f"[EXIF] Error extracting EXIF: {e}")
 
     return exif_data
+
+
+def _get_exif_from_heif_direct(image_data: bytes) -> Dict[str, Any]:
+    """
+    Извлекает EXIF напрямую из HEIC/HEIF контейнера через pillow_heif.
+    Используется как fallback когда стандартный путь через Image.open не даёт EXIF.
+    """
+    if not HEIF_AVAILABLE:
+        return {}
+    try:
+        from pillow_heif import open_heif
+        heif_file = open_heif(io.BytesIO(image_data))
+        exif_bytes = heif_file.info.get("exif")
+        if not exif_bytes:
+            return {}
+        parsed = Image.Exif()
+        parsed.load(exif_bytes)
+        return _parse_exif_obj(parsed)
+    except Exception as e:
+        log.warning(f"[EXIF] Direct HEIF EXIF extraction failed: {e}")
+        return {}
 
 
 def _convert_to_degrees(value) -> Optional[float]:
@@ -175,16 +229,13 @@ def _safe_str(value) -> Optional[str]:
         return None
 
 
-async def scan_exif(image_data: bytes, filename: str = "image") -> ExifScanResult:
+def _scan_exif_sync(image_data: bytes, filename: str = "image") -> ExifScanResult:
     """
-    Извлекает EXIF данные из изображения.
+    Извлекает EXIF данные из изображения. Синхронная, CPU-bound часть.
 
-    Args:
-        image_data: Байты изображения
-        filename: Имя файла
-
-    Returns:
-        ExifScanResult
+    Вызывать только через scan_exif() — декодирование Pillow и особенно
+    rawpy.postprocess() для RAW-файлов на 20–50 МБ занимают секунды и
+    замораживают event loop, если выполнить их прямо в корутине.
     """
     log.info(f"[EXIF Scanner] Scanning: {filename}")
 
@@ -192,7 +243,7 @@ async def scan_exif(image_data: bytes, filename: str = "image") -> ExifScanResul
     if image is None:
         ext = filename.rsplit(".", 1)[-1].upper() if "." in filename else "?"
         log.warning(f"[EXIF] Cannot open image: {filename} (format {ext} not supported)")
-        info = ExifInfo(has_exif=False)
+        info = ExifInfo(has_exif=False, open_failed=True)
         risk_level, flags, score = calculate_exif_risk(info)
         return ExifScanResult(
             filename=filename,
@@ -210,6 +261,14 @@ async def scan_exif(image_data: bytes, filename: str = "image") -> ExifScanResul
 
     # Извлекаем EXIF
     exif_data = _get_exif_data(image)
+
+    # Fallback для HEIC: попытка извлечь EXIF напрямую из контейнера
+    if not exif_data and HEIF_AVAILABLE:
+        ext = ("." + filename.rsplit(".", 1)[-1]).lower() if "." in filename else ""
+        if ext in {".heic", ".heif", ".avif"} or (img_format and img_format.upper() == "HEIF"):
+            log.info(f"[EXIF] Trying direct HEIF EXIF extraction for {filename}")
+            exif_data = _get_exif_from_heif_direct(image_data)
+
     has_exif = len(exif_data) > 0
 
     # GPS
@@ -280,3 +339,17 @@ async def scan_exif(image_data: bytes, filename: str = "image") -> ExifScanResul
     log.info(f"[EXIF Scanner] Result: has_exif={has_exif}, has_gps={info.has_gps}")
 
     return result
+
+
+async def scan_exif(image_data: bytes, filename: str = "image") -> ExifScanResult:
+    """
+    Извлекает EXIF данные из изображения.
+
+    Args:
+        image_data: Байты изображения
+        filename: Имя файла
+
+    Returns:
+        ExifScanResult
+    """
+    return await asyncio.to_thread(_scan_exif_sync, image_data, filename)

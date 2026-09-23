@@ -1,5 +1,6 @@
 # email_scanner/formatter.py
 """Форматирование результатов сканирования Email для Telegram."""
+from utils.safe_html import esc
 from email_scanner.models import EmailScanResult
 from utils.risk_types import get_risk_emoji, RiskLevel
 
@@ -16,15 +17,15 @@ def format_email_result(result: EmailScanResult) -> str:
 
     if info:
         # Email
-        lines.append(f"<b>Email:</b> <code>{info.email}</code>")
+        lines.append(f"<b>Email:</b> <code>{esc(info.email)}</code>")
 
         # Домен
         if info.domain:
-            lines.append(f"<b>Домен:</b> {info.domain}")
+            lines.append(f"<b>Домен:</b> {esc(info.domain)}")
 
         # Провайдер
         if info.provider_name:
-            lines.append(f"<b>Провайдер:</b> {info.provider_name}")
+            lines.append(f"<b>Провайдер:</b> {esc(info.provider_name)}")
 
         # Тип
         if info.is_disposable:
@@ -57,7 +58,7 @@ def format_email_result(result: EmailScanResult) -> str:
         if info.holehe_hits:
             lines.append(f"<b>Платформы ({len(info.holehe_hits)} найдено):</b>")
             for domain in info.holehe_hits[:15]:
-                lines.append(f"  • {domain}")
+                lines.append(f"  • {esc(domain)}")
             if len(info.holehe_hits) > 15:
                 lines.append(f"  ... и ещё {len(info.holehe_hits) - 15}")
         elif info.is_valid_format and info.has_mx_records:
@@ -85,7 +86,7 @@ def format_email_result(result: EmailScanResult) -> str:
                 "🟡" if flag.level == RiskLevel.MEDIUM else "🟢"
             )
             weight_str = f"+{flag.weight}" if flag.weight > 0 else str(flag.weight)
-            lines.append(f"  {flag_emoji} {flag.message} ({weight_str})")
+            lines.append(f"  {flag_emoji} {esc(flag.message)} ({weight_str})")
 
     # Предупреждения
     if info and info.is_disposable:

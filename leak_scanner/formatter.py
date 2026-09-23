@@ -1,5 +1,6 @@
 # leak_scanner/formatter.py
 """Форматирование результатов проверки утечек для Telegram."""
+from utils.safe_html import esc
 from leak_scanner.models import LeakScanResult
 from utils.risk_types import get_risk_emoji, get_risk_label, RiskLevel
 
@@ -20,7 +21,7 @@ def format_leak_result(result: LeakScanResult) -> str:
 
     lines = []
     lines.append("🔓 <b>Проверка на утечки данных</b>")
-    lines.append(f"<code>{result.query}</code>")
+    lines.append(f"<code>{esc(result.query)}</code>")
     lines.append("")
 
     # Риск
@@ -28,7 +29,19 @@ def format_leak_result(result: LeakScanResult) -> str:
     lines.append("")
 
     if info:
-        if not info.is_pwned:
+        if info.no_api_key:
+            lines.append("⚠️ <b>HIBP API ключ не настроен</b>")
+            lines.append("")
+            lines.append("Для проверки утечек требуется API ключ <b>Have I Been Pwned</b>.")
+            lines.append("")
+            lines.append("📋 <b>Как получить:</b>")
+            lines.append("    1. Перейди на <a href=\"https://haveibeenpwned.com/API/Key\">haveibeenpwned.com/API/Key</a>")
+            lines.append("    2. Получи ключ (~$3.50/мес)")
+            lines.append("    3. Добавь в <code>.env</code>: <code>HIBP_API_KEY=твой_ключ</code>")
+            lines.append("")
+            lines.append("Пока ключ не настроен — проверяй вручную:")
+            lines.append(f"🔗 <a href=\"https://haveibeenpwned.com/account/{esc(result.query)}\">haveibeenpwned.com</a>")
+        elif not info.is_pwned:
             lines.append("✅ <b>Отлично!</b>")
             lines.append("Не найден в известных утечках данных.")
             lines.append("")
@@ -42,14 +55,14 @@ def format_leak_result(result: LeakScanResult) -> str:
             if info.breaches:
                 lines.append("📋 <b>Утечки:</b>")
                 for breach in info.breaches[:5]:
-                    lines.append(f"    • <b>{breach.title or breach.name}</b>")
+                    lines.append(f"    • <b>{esc(breach.title or breach.name)}</b>")
                     if breach.breach_date:
-                        lines.append(f"      Дата: {breach.breach_date}")
+                        lines.append(f"      Дата: {esc(breach.breach_date)}")
                     if breach.pwn_count:
                         count_str = f"{breach.pwn_count:,}".replace(",", " ")
-                        lines.append(f"      Затронуто: {count_str} аккаунтов")
+                        lines.append(f"      Затронуто: {esc(count_str)} аккаунтов")
                     if breach.data_classes:
-                        lines.append(f"      Данные: {', '.join(breach.data_classes[:4])}")
+                        lines.append(f"      Данные: {esc(', '.join(breach.data_classes[:4]))}")
                     lines.append("")
 
                 if len(info.breaches) > 5:
@@ -73,7 +86,7 @@ def format_leak_result(result: LeakScanResult) -> str:
                 flag_emoji = "🟡"
             else:
                 flag_emoji = "🟢"
-            lines.append(f"    {flag_emoji} {flag.message}")
+            lines.append(f"    {flag_emoji} {esc(flag.message)}")
 
     # Источник
     lines.append("")

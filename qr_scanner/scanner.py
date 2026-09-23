@@ -1,5 +1,6 @@
 # qr_scanner/scanner.py
 """Основной модуль декодирования QR кодов."""
+import asyncio
 import io
 import logging
 import re
@@ -220,16 +221,13 @@ def _analyze_url(url: str) -> dict:
     return result
 
 
-async def scan_qr(image_data: bytes, filename: str = "image") -> QrScanResult:
+def _scan_qr_sync(image_data: bytes, filename: str = "image") -> QrScanResult:
     """
-    Декодирует QR код из изображения.
+    Декодирует QR код из изображения. Синхронная, CPU-bound часть.
 
-    Args:
-        image_data: Байты изображения
-        filename: Имя файла
-
-    Returns:
-        QrScanResult
+    Вызывать только через scan_qr(): декодирование Pillow и детектор OpenCV
+    заметно нагружают процессор и заморозили бы event loop для всех
+    пользователей, если выполнить их прямо в корутине.
     """
     log.info(f"[QR Scanner] Scanning: {filename}")
 
@@ -363,3 +361,17 @@ async def scan_qr(image_data: bytes, filename: str = "image") -> QrScanResult:
     log.info(f"[QR Scanner] Decoded: type={content_type.value}, length={len(raw_data)}")
 
     return result
+
+
+async def scan_qr(image_data: bytes, filename: str = "image") -> QrScanResult:
+    """
+    Декодирует QR код из изображения.
+
+    Args:
+        image_data: Байты изображения
+        filename: Имя файла
+
+    Returns:
+        QrScanResult
+    """
+    return await asyncio.to_thread(_scan_qr_sync, image_data, filename)
