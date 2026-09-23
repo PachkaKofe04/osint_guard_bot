@@ -67,7 +67,7 @@ def calculate_wallet_risk(info: Optional[WalletInfo]) -> Tuple[RiskLevel, List[R
         0,
     )
 
-    # Известный скам-адрес — высочайший риск
+    # Известный скам-адрес - высочайший риск
     if info.is_scam:
         labels = ", ".join(info.scam_labels) if info.scam_labels else "scam"
         add_risk_flag(
@@ -78,7 +78,7 @@ def calculate_wallet_risk(info: Optional[WalletInfo]) -> Tuple[RiskLevel, List[R
             WalletRiskWeight.KNOWN_SCAM,
         )
 
-    # Известная биржа — доверие
+    # Известная биржа - доверие
     if info.exchange_name:
         add_risk_flag(
             flags,

@@ -124,7 +124,7 @@ async def scan_ip(raw_ip: str) -> IpScanResult:
     is_private = is_private_ip(ip)
     is_reserved = is_reserved_ip(ip)
 
-    # Если приватный — не запрашиваем внешние API
+    # Если приватный - не запрашиваем внешние API
     if is_private or is_reserved:
         info = IpInfo(
             ip=ip,

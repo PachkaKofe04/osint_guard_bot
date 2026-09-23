@@ -111,13 +111,13 @@ class TestValidateAddress:
         assert currency == "ETH"
 
     def test_explicit_currency_match(self):
-        """Явное указание валюты — совпадает."""
+        """Явное указание валюты - совпадает."""
         is_valid, currency = validate_address("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", "BTC")
         assert is_valid is True
         assert currency == "BTC"
 
     def test_explicit_currency_mismatch(self):
-        """Явное указание валюты — не совпадает."""
+        """Явное указание валюты - не совпадает."""
         is_valid, currency = validate_address("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", "ETH")
         assert is_valid is False
 
@@ -132,7 +132,7 @@ class TestCalculateWalletRisk:
     """Тесты функции calculate_wallet_risk."""
 
     def test_none_info(self):
-        """Если info=None — средний риск."""
+        """Если info=None - средний риск."""
         level, flags, score = calculate_wallet_risk(None)
         assert any(f.code == "WALLET_ANALYSIS_FAILED" for f in flags)
 
@@ -147,7 +147,7 @@ class TestCalculateWalletRisk:
         assert any(f.code == "INVALID_WALLET" for f in flags)
 
     def test_known_scam_address(self):
-        """Известный скам-адрес — критический риск."""
+        """Известный скам-адрес - критический риск."""
         info = WalletInfo(
             address="1Ai52Uw6usjhpcDrwSmkUvjuqLpcznUuyF",
             currency="BTC",
@@ -160,7 +160,7 @@ class TestCalculateWalletRisk:
         assert score >= 6
 
     def test_known_exchange(self):
-        """Известная биржа — доверие."""
+        """Известная биржа - доверие."""
         info = WalletInfo(
             address="3FZbgi29cpjq2GjdwV8eyHuJJnkLtktZc5",
             currency="BTC",
@@ -226,7 +226,7 @@ class TestCalculateWalletRisk:
         assert any(f.code == "SMART_CONTRACT" for f in flags)
 
     def test_clean_active_wallet(self):
-        """Чистый активный кошелёк — низкий риск."""
+        """Чистый активный кошелёк - низкий риск."""
         info = WalletInfo(
             address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
             currency="BTC",

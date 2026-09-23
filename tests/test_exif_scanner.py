@@ -10,19 +10,19 @@ class TestCalculateExifRisk:
     """Тесты функции calculate_exif_risk."""
 
     def test_none_info(self):
-        """Если info=None — средний риск."""
+        """Если info=None - средний риск."""
         level, flags, score = calculate_exif_risk(None)
         assert any(f.code == "EXIF_ANALYSIS_FAILED" for f in flags)
 
     def test_no_exif(self):
-        """Нет EXIF — низкий риск (приватность защищена)."""
+        """Нет EXIF - низкий риск (приватность защищена)."""
         info = ExifInfo(has_exif=False)
         level, flags, score = calculate_exif_risk(info)
         assert any(f.code == "NO_EXIF_DATA" for f in flags)
         assert level == RiskLevel.LOW
 
     def test_gps_found(self):
-        """GPS координаты — высокий риск."""
+        """GPS координаты - высокий риск."""
         info = ExifInfo(
             has_exif=True,
             has_gps=True,
@@ -33,7 +33,7 @@ class TestCalculateExifRisk:
         assert score >= 4
 
     def test_no_gps(self):
-        """Нет GPS — отмечается как безопасно."""
+        """Нет GPS - отмечается как безопасно."""
         info = ExifInfo(
             has_exif=True,
             has_gps=False,
@@ -79,7 +79,7 @@ class TestCalculateExifRisk:
         assert any(f.code == "SOFTWARE_INFO" for f in flags)
 
     def test_many_metadata(self):
-        """Много метаданных — повышенный риск."""
+        """Много метаданных - повышенный риск."""
         info = ExifInfo(
             has_exif=True,
             has_gps=True,

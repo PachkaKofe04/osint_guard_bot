@@ -1,5 +1,5 @@
 # services/holehe_service.py
-"""Holehe — проверка email на регистрацию в сервисах (100+ платформ)."""
+"""Holehe - проверка email на регистрацию в сервисах (100+ платформ)."""
 import asyncio
 import logging
 from typing import List

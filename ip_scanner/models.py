@@ -11,7 +11,7 @@ class OtxInfo(BaseModel):
     """Данные репутации IP из AlienVault OTX."""
     pulse_count: int = 0
     malware_samples: int = 0
-    # validation: list of dict или list of str — зависит от OTX API
+    # validation: list of dict или list of str - зависит от OTX API
     # игнорируем её, нам достаточно pulse_count и malware_samples
 
 

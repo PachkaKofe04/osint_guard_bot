@@ -54,7 +54,7 @@ def normalize_phone(raw: str) -> str:
     if digits.startswith("8") and len(digits) == 11:
         digits = "7" + digits[1:]
 
-    # 10 цифр без кода страны — предполагаем РФ
+    # 10 цифр без кода страны - предполагаем РФ
     if len(digits) == 10 and not digits.startswith(("7", "3", "8", "1")):
         digits = "7" + digits
 
@@ -84,7 +84,7 @@ def _parse_with_phonenumbers(phone_e164: str) -> Optional[PhoneInfo]:
         or None
     )
 
-    # Оператор по префиксу (оффлайн база — НЕ учитывает перенос номера MNP)
+    # Оператор по префиксу (оффлайн база - НЕ учитывает перенос номера MNP)
     carrier_name = (
         pn_carrier.name_for_number(parsed, "ru")
         or pn_carrier.name_for_number(parsed, "en")
@@ -107,7 +107,7 @@ def _parse_with_phonenumbers(phone_e164: str) -> Optional[PhoneInfo]:
         operator=carrier_name,
         region=region if region else None,
         is_virtual=is_virtual,
-        confidence=85,  # оффлайн база — высокая точность для страны/типа, ниже для оператора
+        confidence=85,  # оффлайн база - высокая точность для страны/типа, ниже для оператора
     )
 
 
@@ -115,8 +115,8 @@ async def scan_phone(raw_phone: str) -> PhoneScanResult:
     """
     Сканирование телефонного номера.
 
-    1. phonenumbers — страна, тип, оператор (по префиксу), регион
-    2. Veriphone API (если ключ задан) — апгрейд: точный оператор с учётом MNO-данных
+    1. phonenumbers - страна, тип, оператор (по префиксу), регион
+    2. Veriphone API (если ключ задан) - апгрейд: точный оператор с учётом MNO-данных
     """
     normalized = normalize_phone(raw_phone)
     phone_e164 = f"+{normalized}"

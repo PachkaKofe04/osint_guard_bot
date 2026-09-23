@@ -42,7 +42,7 @@ def _extract_host(raw: str) -> str:
 def normalize_domain(raw: str) -> Optional[str]:
     """
     Преобразует произвольный ввод в нормализованный домен (punycode, lower).
-    Если домен некорректен — возвращает None.
+    Если домен некорректен - возвращает None.
     """
     if not raw:
         return None

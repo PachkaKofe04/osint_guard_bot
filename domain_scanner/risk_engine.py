@@ -60,7 +60,7 @@ OFFICIAL_BRAND_DOMAINS = {
 }
 
 # Ключевые слова брендов для детекции фишинга
-# Если домен СОДЕРЖИТ эти слова, но НЕ является официальным — это подозрительно
+# Если домен СОДЕРЖИТ эти слова, но НЕ является официальным - это подозрительно
 BRAND_KEYWORDS_FOR_PHISHING_DETECTION = {
     "facebook", "instagram", "whatsapp", "telegram",
     "vkontakte", "twitter", "tiktok", "youtube",
@@ -74,7 +74,7 @@ BRAND_KEYWORDS_FOR_PHISHING_DETECTION = {
 }
 
 
-# Составные TLD (второй уровень + TLD) — .co.uk, .com.au и т.д.
+# Составные TLD (второй уровень + TLD) - .co.uk, .com.au и т.д.
 # Нужны чтобы правильно извлекать домен: example.co.uk → example (не co)
 _COMPOUND_TLDS = {
     "co.uk", "co.nz", "co.in", "co.jp", "co.za", "co.id", "co.ke",
@@ -418,7 +418,7 @@ def calculate_risk(
             impersonated_brand = brand
 
     if is_official:
-        # Официальный домен бренда — высокое доверие
+        # Официальный домен бренда - высокое доверие
         add_risk_flag(
             flags,
             "OFFICIAL_BRAND_DOMAIN",
@@ -427,7 +427,7 @@ def calculate_risk(
             RiskWeight.TRUSTED_BRAND,
         )
     elif impersonated_brand:
-        # Попытка имитации бренда — ВЫСОКИЙ РИСК ФИШИНГА!
+        # Попытка имитации бренда - ВЫСОКИЙ РИСК ФИШИНГА!
         add_risk_flag(
             flags,
             "BRAND_IMPERSONATION",

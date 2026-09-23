@@ -121,7 +121,7 @@ def calculate_qr_risk(
             flags,
             "SMS_CONTENT",
             RiskLevel.MEDIUM,
-            "SMS сообщение — проверьте номер получателя",
+            "SMS сообщение - проверьте номер получателя",
             1,
         )
 
@@ -178,7 +178,7 @@ def _analyze_url_risk(info: QrInfo, flags: List[RiskFlag]) -> None:
             flags,
             "SHORTENED_URL",
             RiskLevel.MEDIUM,
-            "Сокращённая ссылка — конечный URL скрыт",
+            "Сокращённая ссылка - конечный URL скрыт",
             QrRiskWeight.SHORTENED_URL,
         )
     else:

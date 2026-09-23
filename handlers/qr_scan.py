@@ -36,19 +36,19 @@ def _is_image_document(document: types.Document) -> bool:
 async def cmd_qr_help(message: types.Message, state: FSMContext) -> None:
     """
     Справка по команде /qr и активация режима ожидания QR.
-    Срабатывает, только если /qr отправлен НЕ в ответ на фото —
+    Срабатывает, только если /qr отправлен НЕ в ответ на фото -
     иначе обработку забирает cmd_qr_reply_to_photo.
     """
-    # Устанавливаем состояние — ждём фото с QR кодом
+    # Устанавливаем состояние - ждём фото с QR кодом
     await state.set_state(QRScanStates.waiting_for_photo)
 
     await safe_answer(message,
         "📱 <b>Декодирование QR кодов</b>\n\n"
         "Отправьте фото с QR кодом для анализа.\n\n"
         "<b>Что анализируется:</b>\n"
-        "• 🔗 URL — проверка на фишинг\n"
-        "• 📶 WiFi — сеть и пароль\n"
-        "• 💰 Криптовалюта — адрес и сумма\n"
+        "• 🔗 URL - проверка на фишинг\n"
+        "• 📶 WiFi - сеть и пароль\n"
+        "• 💰 Криптовалюта - адрес и сумма\n"
         "• 📧 Email, 📞 телефон\n"
         "• 📍 Геолокация\n"
         "• 📝 Текст\n\n"
@@ -110,7 +110,7 @@ async def handle_qr_document_in_state(message: types.Message, state: FSMContext)
         log.error(f"[QR] Error scanning document: {e}")
         await safe_edit(waiting_msg,
             "⚠️ Ошибка при сканировании QR кода.\n"
-            "Убедитесь, что файл — это изображение с QR кодом."
+            "Убедитесь, что файл - это изображение с QR кодом."
         )
         await state.clear()
         return
@@ -124,7 +124,7 @@ async def handle_qr_document_in_state(message: types.Message, state: FSMContext)
 
 # Примечание: обработка фото с QR кодами происходит в exif_scan.py
 # Если нужен отдельный обработчик, можно добавить фильтр по caption "/qr"
-# Но для удобства пользователя — любое фото сначала проверяется на EXIF,
+# Но для удобства пользователя - любое фото сначала проверяется на EXIF,
 # а для QR можно сделать inline кнопку или отдельную команду
 
 @router.message(Command("qr"), F.reply_to_message.photo)
@@ -210,7 +210,7 @@ async def handle_document_with_qr_caption(message: types.Message) -> None:
         log.error(f"[QR] Error scanning document: {e}")
         await safe_edit(waiting_msg,
             "⚠️ Ошибка при сканировании QR кода.\n"
-            "Убедитесь, что файл — это изображение с QR кодом."
+            "Убедитесь, что файл - это изображение с QR кодом."
         )
         return
 

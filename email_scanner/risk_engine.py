@@ -59,23 +59,23 @@ def calculate_email_risk(info: Optional[EmailInfo]) -> Tuple[RiskLevel, List[Ris
             EmailRiskWeight.INVALID_FORMAT,
         )
 
-    # Одноразовый email — высокий риск
+    # Одноразовый email - высокий риск
     if info.is_disposable:
         add_risk_flag(
             flags,
             "DISPOSABLE_EMAIL",
             RiskLevel.HIGH,
-            "Одноразовый (временный) email — часто используется для мошенничества",
+            "Одноразовый (временный) email - часто используется для мошенничества",
             EmailRiskWeight.DISPOSABLE_EMAIL,
         )
 
-    # Нет MX записей — домен не принимает почту
+    # Нет MX записей - домен не принимает почту
     if not info.has_mx_records:
         add_risk_flag(
             flags,
             "NO_MX_RECORDS",
             RiskLevel.HIGH,
-            "Домен не имеет MX записей — не может принимать почту",
+            "Домен не имеет MX записей - не может принимать почту",
             EmailRiskWeight.NO_MX_RECORDS,
         )
 
@@ -100,7 +100,7 @@ def calculate_email_risk(info: Optional[EmailInfo]) -> Tuple[RiskLevel, List[Ris
             f"Email найден в {info.breach_count} утечках: {breaches_str}",
             EmailRiskWeight.FEW_BREACHES,
         )
-    # HIBP не подключён — проверку утечек не производим, флаг не выдаём
+    # HIBP не подключён - проверку утечек не производим, флаг не выдаём
 
     # Возраст домена
     if info.domain_age_days is not None and info.domain_age_days < 30:
@@ -122,7 +122,7 @@ def calculate_email_risk(info: Optional[EmailInfo]) -> Tuple[RiskLevel, List[Ris
             EmailRiskWeight.FREE_PROVIDER,
         )
 
-    # Корпоративный email — доверие
+    # Корпоративный email - доверие
     if info.is_corporate:
         add_risk_flag(
             flags,

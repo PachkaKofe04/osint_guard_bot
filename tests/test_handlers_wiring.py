@@ -93,9 +93,9 @@ def bot() -> RecordingBot:
 @pytest.fixture(scope="module")
 def _dispatcher() -> Dispatcher:
     """
-    Диспетчер с rate limiter — как в проде.
+    Диспетчер с rate limiter - как в проде.
 
-    Модульная область видимости вынужденная: роутеры в aiogram — модульные
+    Модульная область видимости вынужденная: роутеры в aiogram - модульные
     синглтоны и не могут быть присоединены к двум Dispatcher'ам.
     Состояние между тестами сбрасывает фикстура dp.
     """
@@ -154,7 +154,7 @@ class TestButtonsNotRateLimited:
 
 
 class TestUsageHintsNotRateLimited:
-    """Команда без аргумента никуда не ходит — квоту тратить незачем."""
+    """Команда без аргумента никуда не ходит - квоту тратить незачем."""
 
     async def test_many_menu_commands_all_answered(self, dp, bot):
         for i in range(15):

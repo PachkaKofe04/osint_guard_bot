@@ -21,19 +21,19 @@ MAIN_MENU_TEXT = (
 
 @router.message(Command("start"))
 async def cmd_start(message: types.Message) -> None:
-    """Команда /start — показать главное меню."""
+    """Команда /start - показать главное меню."""
     await message.answer(MAIN_MENU_TEXT, reply_markup=get_main_menu())
 
 
 @router.message(Command("menu"))
 async def cmd_menu(message: types.Message) -> None:
-    """Команда /menu — показать главное меню."""
+    """Команда /menu - показать главное меню."""
     await message.answer(MAIN_MENU_TEXT, reply_markup=get_main_menu())
 
 
 @router.message(Command("help"))
 async def cmd_help(message: types.Message) -> None:
-    """Команда /help — показать главное меню."""
+    """Команда /help - показать главное меню."""
     await message.answer(MAIN_MENU_TEXT, reply_markup=get_main_menu())
 
 

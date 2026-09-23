@@ -106,10 +106,10 @@ async def scan_leaks(query: str, api_key: Optional[str] = None) -> LeakScanResul
                 breaches=breaches,
             )
         else:
-            # API вернул ошибку — не удалось проверить
+            # API вернул ошибку - не удалось проверить
             info = _make_no_api_key_info(query)
     else:
-        # Нет API ключа — честно сообщаем
+        # Нет API ключа - честно сообщаем
         info = _make_no_api_key_info(query)
 
     # Рассчитываем риск

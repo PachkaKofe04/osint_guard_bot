@@ -29,7 +29,7 @@ class FakeBot(Bot):
         if name == "EditMessageReplyMarkup":
             return True
         if name == "GetFile":
-            raise RuntimeError("GetFile called (сеть Telegram) — пропускаем")
+            raise RuntimeError("GetFile called (сеть Telegram) - пропускаем")
         return True
 
 USER = User(id=777, is_bot=False, first_name="Tester", username="tester")
@@ -118,7 +118,7 @@ async def main():
     dp = await build_dp()
 
     print("=" * 110)
-    print("БЛОК 1 — команды и меню (без сети, ожидаем usage-подсказки)")
+    print("БЛОК 1 - команды и меню (без сети, ожидаем usage-подсказки)")
     print("=" * 110)
     cases = [
         ("/start", msg("/start")),
@@ -147,7 +147,7 @@ async def main():
 
     print()
     print("=" * 110)
-    print("БЛОК 2 — callback-кнопки")
+    print("БЛОК 2 - callback-кнопки")
     print("=" * 110)
     cbs = ["menu:main", "help:site", "help:email", "help:phone", "help:ip", "help:user",
            "help:bin", "help:wallet", "help:leak", "help:photo", "help:qr", "help:domain",
@@ -157,7 +157,7 @@ async def main():
 
     print()
     print("=" * 110)
-    print("БЛОК 3 — свободный текст (auto-detect), без сети → смотрим что отвечает")
+    print("БЛОК 3 - свободный текст (auto-detect), без сети → смотрим что отвечает")
     print("=" * 110)
     texts = ["привет", "как дела", "спасибо", "?", "ok", "хочу проверить сайт",
              "проверь мне номер", "help", "меню"]

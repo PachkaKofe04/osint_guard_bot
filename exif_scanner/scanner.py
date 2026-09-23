@@ -33,7 +33,7 @@ try:
     RAWPY_AVAILABLE = True
     log.info("[EXIF] rawpy: RAW форматы поддерживаются (NEF/CR2/ARW/DNG/...)")
 except ImportError:
-    log.warning("[EXIF] rawpy не установлен (pip install rawpy) — RAW форматы не поддерживаются")
+    log.warning("[EXIF] rawpy не установлен (pip install rawpy) - RAW форматы не поддерживаются")
 
 # RAW расширения файлов (камеры разных производителей)
 RAW_EXTENSIONS = {
@@ -116,7 +116,7 @@ def _get_exif_data(image: Image.Image) -> Dict[str, Any]:
     except Exception:
         pass
 
-    # Попытка 2: raw bytes из image.info['exif'] — важно для HEIC/HEIF
+    # Попытка 2: raw bytes из image.info['exif'] - важно для HEIC/HEIF
     # pillow_heif кладёт EXIF сюда, и Image.Exif().load() корректно его разбирает
     if not exif_data:
         try:
@@ -233,8 +233,8 @@ def _scan_exif_sync(image_data: bytes, filename: str = "image") -> ExifScanResul
     """
     Извлекает EXIF данные из изображения. Синхронная, CPU-bound часть.
 
-    Вызывать только через scan_exif() — декодирование Pillow и особенно
-    rawpy.postprocess() для RAW-файлов на 20–50 МБ занимают секунды и
+    Вызывать только через scan_exif() - декодирование Pillow и особенно
+    rawpy.postprocess() для RAW-файлов на 20-50 МБ занимают секунды и
     замораживают event loop, если выполнить их прямо в корутине.
     """
     log.info(f"[EXIF Scanner] Scanning: {filename}")

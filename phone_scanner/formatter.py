@@ -60,7 +60,7 @@ def format_phone_summary(result: PhoneScanResult) -> str:
     lines.append(f"<b>Страна (по номеру):</b> {esc(country)}")
     lines.append(f"<b>Оператор:</b> {esc(operator)}")
     if info.is_virtual:
-        lines.append("  ⚠️ Виртуальный оператор (MVNO) — возможен MNP")
+        lines.append("  ⚠️ Виртуальный оператор (MVNO) - возможен MNP")
     lines.append(f"<b>Регион:</b> {esc(region)}")
     lines.append(f"<b>Оценка:</b> {comment}")
 

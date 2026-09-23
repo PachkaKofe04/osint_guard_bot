@@ -46,7 +46,7 @@ if not PYZBAR_AVAILABLE:
         CV2_AVAILABLE = True
         log.info("[QR] OpenCV loaded as QR backend")
     except ImportError:
-        log.warning("[QR] Neither pyzbar nor OpenCV available — QR decoding disabled")
+        log.warning("[QR] Neither pyzbar nor OpenCV available - QR decoding disabled")
 
 
 # Подозрительные TLD для URL

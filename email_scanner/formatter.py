@@ -54,7 +54,7 @@ def format_email_result(result: EmailScanResult) -> str:
         if info.gravatar_url:
             lines.append(f"<b>Gravatar:</b> <a href=\"{info.gravatar_url}\">Аватар найден</a>")
 
-        # Holehe — регистрации на платформах
+        # Holehe - регистрации на платформах
         if info.holehe_hits:
             lines.append(f"<b>Платформы ({len(info.holehe_hits)} найдено):</b>")
             for domain in info.holehe_hits[:15]:
@@ -74,7 +74,7 @@ def format_email_result(result: EmailScanResult) -> str:
     }
     risk_label = risk_labels.get(result.risk_level, "Неизвестно")
 
-    lines.append(f"<b>Оценка:</b> {emoji} {result.score}/10 — {risk_label}")
+    lines.append(f"<b>Оценка:</b> {emoji} {result.score}/10 - {risk_label}")
 
     # Флаги рисков
     if result.flags:
@@ -94,6 +94,6 @@ def format_email_result(result: EmailScanResult) -> str:
         lines.append("⚠️ <b>Одноразовые email часто используются для мошенничества!</b>")
     elif info and not info.has_mx_records:
         lines.append("")
-        lines.append("⚠️ <b>Домен не может принимать почту — email невалиден!</b>")
+        lines.append("⚠️ <b>Домен не может принимать почту - email невалиден!</b>")
 
     return "\n".join(lines)

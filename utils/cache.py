@@ -41,7 +41,7 @@ class TTLCache(Generic[T]):
     def _evict_one(self) -> None:
         """
         Грубая эвакуация: сначала чистим протухшие,
-        если всё ещё много — выкидываем первый попавшийся ключ.
+        если всё ещё много - выкидываем первый попавшийся ключ.
         """
         self._cleanup_expired()
         if len(self._store) <= self._max_size:

@@ -104,24 +104,24 @@ def calculate_ip_risk(info: Optional[IpInfo], otx: Optional[OtxInfo] = None) -> 
             0,
         )
 
-    # TOR exit node — очень высокий риск
+    # TOR exit node - очень высокий риск
     if info.is_tor:
         add_risk_flag(
             flags,
             "TOR_EXIT_NODE",
             RiskLevel.HIGH,
-            "TOR exit node — часто используется для анонимизации злоумышленников",
+            "TOR exit node - часто используется для анонимизации злоумышленников",
             IpRiskWeight.TOR_EXIT,
         )
 
-    # VPN/Proxy — высокий риск
+    # VPN/Proxy - высокий риск
     if info.is_vpn or info.is_proxy:
         proxy_type = "VPN" if info.is_vpn else "Proxy"
         add_risk_flag(
             flags,
             "VPN_PROXY",
             RiskLevel.MEDIUM,
-            f"{proxy_type} обнаружен — IP может скрывать реальное местоположение",
+            f"{proxy_type} обнаружен - IP может скрывать реальное местоположение",
             IpRiskWeight.VPN_PROXY,
         )
 
@@ -142,7 +142,7 @@ def calculate_ip_risk(info: Optional[IpInfo], otx: Optional[OtxInfo] = None) -> 
                 flags,
                 "HIGH_ABUSE_SCORE",
                 RiskLevel.HIGH,
-                f"Высокий abuse score: {info.abuse_score}% — много жалоб на этот IP",
+                f"Высокий abuse score: {info.abuse_score}% - много жалоб на этот IP",
                 IpRiskWeight.HIGH_ABUSE_SCORE,
             )
         elif info.abuse_score > 25:
@@ -160,7 +160,7 @@ def calculate_ip_risk(info: Optional[IpInfo], otx: Optional[OtxInfo] = None) -> 
             flags,
             "HOSTING_IP",
             RiskLevel.MEDIUM,
-            "Хостинг/датацентр — не резиденциальный IP",
+            "Хостинг/датацентр - не резиденциальный IP",
             IpRiskWeight.HOSTING_IP,
         )
 

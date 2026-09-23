@@ -28,7 +28,7 @@ def format_url_result(result: UrlScanResult) -> str:
         # Оригинальный URL
         lines.append(f"<b>URL:</b> <code>{_escape_html(info.original_url)}</code>")
 
-        # Если была переадресация — показываем конечный URL
+        # Если была переадресация - показываем конечный URL
         if info.original_url != info.final_url:
             lines.append(f"<b>Конечный URL:</b> <code>{_escape_html(info.final_url)}</code>")
 
@@ -55,7 +55,7 @@ def format_url_result(result: UrlScanResult) -> str:
     }
     risk_label = risk_labels.get(result.risk_level, "Неизвестно")
 
-    lines.append(f"<b>Оценка:</b> {emoji} {result.score}/10 — {risk_label}")
+    lines.append(f"<b>Оценка:</b> {emoji} {result.score}/10 - {risk_label}")
 
     # Флаги рисков
     if result.flags:

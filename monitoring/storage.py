@@ -1,5 +1,5 @@
 # monitoring/storage.py
-"""Хранилище мониторов — in-memory с персистентностью через JSON-файл."""
+"""Хранилище мониторов - in-memory с персистентностью через JSON-файл."""
 from __future__ import annotations
 
 import json

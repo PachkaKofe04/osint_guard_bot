@@ -135,7 +135,7 @@ async def scan_email(raw_email: str) -> EmailScanResult:
     is_free = is_free_provider(domain)
     provider = get_provider_name(domain)
 
-    # Корпоративный email — не бесплатный и не одноразовый и имеет MX
+    # Корпоративный email - не бесплатный и не одноразовый и имеет MX
     is_corporate = has_mx and not is_free and not is_disposable
 
     # Собираем информацию

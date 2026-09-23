@@ -98,12 +98,12 @@ class TestCalculateUrlRisk:
     """Тесты функции calculate_url_risk."""
 
     def test_none_info(self):
-        """Если info=None — средний риск."""
+        """Если info=None - средний риск."""
         level, flags, score = calculate_url_risk(None)
         assert any(f.code == "URL_UNREACHABLE" for f in flags)
 
     def test_ip_in_url_high_risk(self):
-        """IP в URL — высокий риск."""
+        """IP в URL - высокий риск."""
         info = UrlInfo(
             original_url="http://192.168.1.1/login",
             final_url="http://192.168.1.1/login",
@@ -114,7 +114,7 @@ class TestCalculateUrlRisk:
         assert score >= 3
 
     def test_shortened_url_low_risk(self):
-        """Сокращённая ссылка — небольшой риск."""
+        """Сокращённая ссылка - небольшой риск."""
         info = UrlInfo(
             original_url="https://bit.ly/abc",
             final_url="https://example.com",
@@ -125,7 +125,7 @@ class TestCalculateUrlRisk:
         assert any(f.code == "SHORTENED_URL" for f in flags)
 
     def test_many_redirects(self):
-        """Много редиректов — средний риск."""
+        """Много редиректов - средний риск."""
         info = UrlInfo(
             original_url="https://bit.ly/abc",
             final_url="https://example.com",
@@ -136,7 +136,7 @@ class TestCalculateUrlRisk:
         assert any(f.code == "MANY_REDIRECTS" for f in flags)
 
     def test_vt_malicious_high_risk(self):
-        """VirusTotal malicious — высокий риск."""
+        """VirusTotal malicious - высокий риск."""
         info = UrlInfo(
             original_url="https://malicious.com",
             final_url="https://malicious.com",
@@ -148,7 +148,7 @@ class TestCalculateUrlRisk:
         assert score >= 5
 
     def test_clean_url(self):
-        """Чистый URL — низкий риск."""
+        """Чистый URL - низкий риск."""
         info = UrlInfo(
             original_url="https://google.com",
             final_url="https://google.com",

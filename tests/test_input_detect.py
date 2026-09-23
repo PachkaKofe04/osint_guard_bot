@@ -6,7 +6,7 @@ from utils.input_detect import SCANNABLE_TYPES, detect_input_type, triggers_scan
 
 
 class TestPhoneDetection:
-    """Ветки телефона раньше не было вообще — /phone был недостижим без команды."""
+    """Ветки телефона раньше не было вообще - /phone был недостижим без команды."""
 
     @pytest.mark.parametrize("value", [
         "+79991234567",
@@ -20,7 +20,7 @@ class TestPhoneDetection:
         assert detect_input_type(value)[0] == "phone"
 
     def test_phone_not_confused_with_ip(self):
-        """8.8.8.8 — это IP, а не номер."""
+        """8.8.8.8 - это IP, а не номер."""
         assert detect_input_type("8.8.8.8")[0] == "ip"
 
 
@@ -49,7 +49,7 @@ class TestCommonWords:
         assert detect_input_type("Admin")[0] == "unknown"
 
     def test_plain_word_is_ambiguous_not_scanned(self):
-        """Незнакомое слово не сканируем молча — переспрашиваем кнопками."""
+        """Незнакомое слово не сканируем молча - переспрашиваем кнопками."""
         assert detect_input_type("torvalds")[0] == "ambiguous"
 
     def test_word_with_digits_is_username(self):
@@ -115,5 +115,5 @@ class TestTriggersScan:
         assert triggers_scan(value) is False
 
     def test_ambiguous_does_not_consume_quota(self):
-        """ambiguous только переспрашивает кнопкой — внешних запросов нет."""
+        """ambiguous только переспрашивает кнопкой - внешних запросов нет."""
         assert "ambiguous" not in SCANNABLE_TYPES

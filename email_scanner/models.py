@@ -37,7 +37,7 @@ class EmailInfo(BaseModel):
     # Gravatar
     gravatar_url: Optional[str] = None
 
-    # Holehe — платформы, где зарегистрирован email
+    # Holehe - платформы, где зарегистрирован email
     holehe_hits: List[str] = []
 
 

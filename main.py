@@ -54,7 +54,7 @@ def _setup_logging() -> None:
 
 
 # Команды для синего меню Telegram. Раньше getMyCommands возвращал пустой
-# список — пользователь не видел ни одной возможности бота.
+# список - пользователь не видел ни одной возможности бота.
 BOT_COMMANDS = [
     BotCommand(command="start", description="☰ Главное меню"),
     BotCommand(command="menu", description="☰ Главное меню"),
@@ -82,7 +82,7 @@ async def main() -> None:
     )
     dp = Dispatcher(storage=MemoryStorage())
 
-    # Graceful shutdown — отменяем задачу polling по SIGINT/SIGTERM.
+    # Graceful shutdown - отменяем задачу polling по SIGINT/SIGTERM.
     # aiogram сам корректно завершит polling через CancelledError.
     loop = asyncio.get_running_loop()
     polling_task: asyncio.Task | None = None
@@ -128,10 +128,10 @@ async def main() -> None:
     dp.include_router(username_router)
     dp.include_router(wallet_router)
     dp.include_router(leak_router)
-    dp.include_router(qr_router)        # QR FIRST — проверяет caption "/qr"
-    dp.include_router(exif_router)      # EXIF SECOND — ловит все остальные фото
+    dp.include_router(qr_router)        # QR FIRST - проверяет caption "/qr"
+    dp.include_router(exif_router)      # EXIF SECOND - ловит все остальные фото
     dp.include_router(monitor_router)   # Мониторинг
-    # Auto-detect последним — catch-all для сообщений без команд
+    # Auto-detect последним - catch-all для сообщений без команд
     dp.include_router(auto_detect_router)
 
     await bot.delete_webhook(drop_pending_updates=True)
@@ -140,7 +140,7 @@ async def main() -> None:
         await bot.set_my_commands(BOT_COMMANDS)
         log.info("Registered %d commands in Telegram menu", len(BOT_COMMANDS))
     except Exception as exc:
-        # Не критично для работы бота — логируем и продолжаем
+        # Не критично для работы бота - логируем и продолжаем
         log.warning("Failed to register bot commands: %s", exc)
 
     log.info("Bot starting polling...")

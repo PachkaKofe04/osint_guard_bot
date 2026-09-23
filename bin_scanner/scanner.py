@@ -104,7 +104,7 @@ def scan_bin(raw_bin: str) -> BinScanResult:
         raise ValueError("Не удалось выделить цифры из BIN")
 
     if len(digits) < 6 or len(digits) > 8:
-        raise ValueError("BIN должен содержать 6–8 цифр")
+        raise ValueError("BIN должен содержать 6-8 цифр")
 
     # Проверяем кэш
     cached = _bin_cache.get(digits)
@@ -142,6 +142,6 @@ async def scan_bin_async(raw_bin: str) -> BinScanResult:
 
     scan_bin синхронна и ходит в сеть через requests. Прямой вызов из
     async-хендлера замораживал event loop целиком (измерено 1.04 с на 404,
-    до ~18 с при таймаутах) — бот переставал отвечать всем пользователям.
+    до ~18 с при таймаутах) - бот переставал отвечать всем пользователям.
     """
     return await asyncio.to_thread(scan_bin, raw_bin)

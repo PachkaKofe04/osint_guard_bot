@@ -42,7 +42,7 @@ def calculate_bin_risk(info: Optional[BinInfo]) -> Tuple[RiskLevel, List[RiskFla
                 flags,
                 "BIN_PREPAID",
                 RiskLevel.MEDIUM,
-                "Prepaid карта — часто используется для анонимных/одноразовых платежей",
+                "Prepaid карта - часто используется для анонимных/одноразовых платежей",
                 RiskWeight.BIN_PREPAID,
             )
 

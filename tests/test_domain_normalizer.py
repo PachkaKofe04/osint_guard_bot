@@ -60,7 +60,7 @@ class TestNormalizeDomain:
 
     def test_ip_address(self):
         """IP-адрес вместо домена."""
-        # Зависит от реализации — может быть валидным или нет
+        # Зависит от реализации - может быть валидным или нет
         result = normalize_domain("192.168.1.1")
         # Тест на то, что функция не падает
         assert result is None or isinstance(result, str)

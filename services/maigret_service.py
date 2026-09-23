@@ -1,5 +1,5 @@
 # services/maigret_service.py
-"""Maigret — углублённый поиск username по 2000+ платформам."""
+"""Maigret - углублённый поиск username по 2000+ платформам."""
 import asyncio
 import logging
 import os
@@ -27,8 +27,8 @@ async def maigret_search(
 
     Returns:
         Tuple:
-            - list of (site_name, profile_url) — найденные профили
-            - int — сколько всего проверено сайтов
+            - list of (site_name, profile_url) - найденные профили
+            - int - сколько всего проверено сайтов
     """
     try:
         import maigret as maigret_pkg
@@ -66,7 +66,7 @@ async def maigret_search(
         found: List[Tuple[str, str]] = []
 
         # maigret возвращает {site_name: dict} где dict["status"] = MaigretCheckResult объект
-        # MaigretCheckResult.status — это MaigretCheckStatus enum (CLAIMED/AVAILABLE/...)
+        # MaigretCheckResult.status - это MaigretCheckStatus enum (CLAIMED/AVAILABLE/...)
         for site_name, result in results.items():
             if isinstance(result, dict):
                 check = result.get("status")     # MaigretCheckResult объект

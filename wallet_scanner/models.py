@@ -32,7 +32,7 @@ class WalletInfo(BaseModel):
 
     # Связанные сервисы
     exchange_name: Optional[str] = None  # Если адрес принадлежит бирже
-    is_contract: bool = False  # Для ETH — смарт-контракт
+    is_contract: bool = False  # Для ETH - смарт-контракт
 
 
 class WalletScanResult(BaseModel):

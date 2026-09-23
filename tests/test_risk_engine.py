@@ -67,17 +67,17 @@ class TestDetectBrandImpersonation:
     def test_fake_google(self):
         """Фейковый google должен определяться."""
         assert _detect_brand_impersonation("google-security.ru") == "google"
-        # google-login.com может найти "google" или "login" — оба подозрительны
+        # google-login.com может найти "google" или "login" - оба подозрительны
         result = _detect_brand_impersonation("google-login.com")
         assert result in ("google", "login")
-        # gooogle.com — typosquatting, требует отдельной проверки на похожие написания
+        # gooogle.com - typosquatting, требует отдельной проверки на похожие написания
 
     def test_fake_facebook(self):
         """Фейковый facebook."""
         # facebook-login.ru может найти "facebook" или "login"
         result = _detect_brand_impersonation("facebook-login.ru")
         assert result in ("facebook", "login")
-        # secure-facebook.com может найти "secure" или "facebook" — оба подозрительны
+        # secure-facebook.com может найти "secure" или "facebook" - оба подозрительны
         result = _detect_brand_impersonation("secure-facebook.com")
         assert result is not None
 

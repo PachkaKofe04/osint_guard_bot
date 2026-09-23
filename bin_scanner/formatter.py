@@ -60,13 +60,13 @@ def format_bin_summary(result: BinScanResult) -> str:
         lines.append("BIN не найден в открытой базе.")
     else:
         lines.append("<b>Данные по BIN:</b>")
-        lines.append(f"  Схема: {info.scheme or '—'}")
-        lines.append(f"  Бренд: {info.brand or '—'}")
-        lines.append(f"  Тип карты: {info.card_type or '—'}")
-        lines.append(f"  Банк: {info.bank_name or '—'}")
+        lines.append(f"  Схема: {info.scheme or '-'}")
+        lines.append(f"  Бренд: {info.brand or '-'}")
+        lines.append(f"  Тип карты: {info.card_type or '-'}")
+        lines.append(f"  Банк: {info.bank_name or '-'}")
         if info.is_trusted:
             lines.append("  ✅ Доверенный банк")
-        lines.append(f"  Страна: {info.country_name or '—'} ({info.country_code or '—'})")
+        lines.append(f"  Страна: {info.country_name or '-'} ({info.country_code or '-'})")
         if info.prepaid is not None:
             lines.append(f"  Prepaid: {'да' if info.prepaid else 'нет'}")
 

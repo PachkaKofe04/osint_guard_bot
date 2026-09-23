@@ -11,7 +11,7 @@ class TestEsc:
         assert esc("Tom & Jerry") == "Tom &amp; Jerry"
 
     def test_ampersand_escaped_before_brackets(self):
-        """&lt; не должен превратиться в &amp;lt; — порядок замен важен."""
+        """&lt; не должен превратиться в &amp;lt; - порядок замен важен."""
         assert esc("<") == "&lt;"
         assert esc("&lt;") == "&amp;lt;"
 

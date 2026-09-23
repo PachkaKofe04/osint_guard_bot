@@ -43,19 +43,19 @@ def calculate_exif_risk(info: Optional[ExifInfo]) -> Tuple[RiskLevel, List[RiskF
         risk_score = calculate_risk_score(flags)
         return risk_score.level, flags, risk_score.score
 
-    # Нет EXIF — приватность сохранена
+    # Нет EXIF - приватность сохранена
     if not info.has_exif:
         add_risk_flag(
             flags,
             "NO_EXIF_DATA",
             RiskLevel.LOW,
-            "EXIF данные отсутствуют — приватность защищена",
+            "EXIF данные отсутствуют - приватность защищена",
             ExifRiskWeight.NO_EXIF,
         )
         risk_score = calculate_risk_score(flags)
         return risk_score.level, flags, risk_score.score
 
-    # GPS координаты — высокий риск приватности
+    # GPS координаты - высокий риск приватности
     if info.has_gps and info.gps:
         add_risk_flag(
             flags,
@@ -115,7 +115,7 @@ def calculate_exif_risk(info: Optional[ExifInfo]) -> Tuple[RiskLevel, List[RiskF
             0,
         )
 
-    # Много метаданных — повышенный риск
+    # Много метаданных - повышенный риск
     if len(info.privacy_concerns) >= 3:
         add_risk_flag(
             flags,

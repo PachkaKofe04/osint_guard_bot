@@ -3,9 +3,9 @@
 Безопасная отправка сообщений в Telegram.
 
 Решает три проблемы, из-за которых пользователь молча не получал ответ:
-  1. Лимит 4096 символов — длинные отчёты (домен с большим SAN-списком)
+  1. Лимит 4096 символов - длинные отчёты (домен с большим SAN-списком)
      отвергались с "message is too long".
-  2. Сломанная HTML-разметка — если в данные просочился неэкранированный
+  2. Сломанная HTML-разметка - если в данные просочился неэкранированный
      символ, Telegram отвечает "can't parse entities" и сообщение теряется.
   3. "message is not modified" при повторном нажатии той же кнопки.
 
@@ -24,7 +24,7 @@ from utils.safe_html import strip_tags
 log = logging.getLogger(__name__)
 
 # Telegram отвергает сообщения длиннее 4096 символов.
-# Берём с запасом — суффикс «часть N» тоже занимает место.
+# Берём с запасом - суффикс «часть N» тоже занимает место.
 TELEGRAM_MAX_LEN = 4096
 SAFE_CHUNK_LEN = 3900
 
@@ -34,7 +34,7 @@ def split_text(text: str, limit: int = SAFE_CHUNK_LEN) -> List[str]:
     Режет текст на части не длиннее limit, стараясь рвать по границам строк.
 
     Строка длиннее limit (например, огромный robots.txt одной строкой)
-    режется жёстко по символам — иначе она не пролезет вообще.
+    режется жёстко по символам - иначе она не пролезет вообще.
     """
     if len(text) <= limit:
         return [text]
@@ -43,7 +43,7 @@ def split_text(text: str, limit: int = SAFE_CHUNK_LEN) -> List[str]:
     current = ""
 
     for line in text.split("\n"):
-        # Сама строка не влезает в лимит — рубим её на куски
+        # Сама строка не влезает в лимит - рубим её на куски
         while len(line) > limit:
             if current:
                 chunks.append(current)
@@ -85,7 +85,7 @@ async def safe_answer(
 ) -> Optional[Message]:
     """
     Отправляет текст, разбивая на части при необходимости.
-    reply_markup прикрепляется к последней части — чтобы кнопки были под концом отчёта.
+    reply_markup прикрепляется к последней части - чтобы кнопки были под концом отчёта.
     Возвращает последнее отправленное сообщение.
     """
     chunks = split_text(text)
@@ -123,7 +123,7 @@ async def safe_edit(
     **kwargs: Any,
 ) -> Optional[Message]:
     """
-    Редактирует сообщение. Если текст не влезает — первая часть уходит в edit,
+    Редактирует сообщение. Если текст не влезает - первая часть уходит в edit,
     остальные отправляются следом отдельными сообщениями.
 
     "message is not modified" не считается ошибкой: пользователь просто
@@ -137,7 +137,7 @@ async def safe_edit(
         await message.edit_text(head, reply_markup=head_markup, **kwargs)
     except TelegramBadRequest as exc:
         if _is_not_modified(exc):
-            log.debug("[telegram_io] Сообщение не изменилось — пропускаем")
+            log.debug("[telegram_io] Сообщение не изменилось - пропускаем")
         elif _is_parse_error(exc):
             log.warning("[telegram_io] Разметка отвергнута при edit, откат на plain text: %s", exc)
             await message.edit_text(

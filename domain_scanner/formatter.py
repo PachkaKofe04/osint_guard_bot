@@ -24,7 +24,7 @@ def _flag_emoji(level: RiskLevel) -> str:
 
 def _score_comment(score: int) -> str:
     """
-    Шкала 0–10: чем больше, тем подозрительнее.
+    Шкала 0-10: чем больше, тем подозрительнее.
     """
     if score >= 9:
         return "Максимальная подозрительность. Очень похоже на фишинг/скам."
@@ -93,10 +93,10 @@ def format_details(result: DomainScanResult) -> str:
     if w is None:
         lines.append("  Не удалось получить WHOIS-данные.")
     else:
-        lines.append(f"  Дата регистрации: {esc(w.creation_date or '—')}")
-        lines.append(f"  Последнее обновление: {esc(w.updated_date or '—')}")
-        lines.append(f"  Регистратор: {esc(w.registrar or '—')}")
-        lines.append(f"  Страна: {esc(w.country or '—')}")
+        lines.append(f"  Дата регистрации: {esc(w.creation_date or '-')}")
+        lines.append(f"  Последнее обновление: {esc(w.updated_date or '-')}")
+        lines.append(f"  Регистратор: {esc(w.registrar or '-')}")
+        lines.append(f"  Страна: {esc(w.country or '-')}")
         lines.append(f"  Приватность WHOIS: {'да' if w.is_privacy_protected else 'нет'}")
     lines.append("")
 
@@ -106,10 +106,10 @@ def format_details(result: DomainScanResult) -> str:
     if d is None:
         lines.append("  Не удалось получить DNS-записи.")
     else:
-        lines.append(f"  A: {esc(', '.join(d.a_records) or '—')}")
-        lines.append(f"  NS: {esc(', '.join(d.ns_records) or '—')}")
-        lines.append(f"  MX: {esc(', '.join(d.mx_records) or '—')}")
-        lines.append(f"  TXT: {esc(', '.join(d.txt_records) or '—')}")
+        lines.append(f"  A: {esc(', '.join(d.a_records) or '-')}")
+        lines.append(f"  NS: {esc(', '.join(d.ns_records) or '-')}")
+        lines.append(f"  MX: {esc(', '.join(d.mx_records) or '-')}")
+        lines.append(f"  TXT: {esc(', '.join(d.txt_records) or '-')}")
     lines.append("")
 
     # IP / Hosting enrichment
@@ -119,9 +119,9 @@ def format_details(result: DomainScanResult) -> str:
     else:
         for p in result.ip_profiles[:5]:
             lines.append(f"  IP: {esc(p.ip)}")
-            lines.append(f"    Страна/город: {esc((p.country or '—'))} / {esc((p.city or '—'))}")
-            lines.append(f"    ISP/ORG: {esc((p.isp or '—'))} / {esc((p.org or '—'))}")
-            lines.append(f"    ASN: {esc((p.asn or '—'))} ({esc(p.asname or '—')})")
+            lines.append(f"    Страна/город: {esc((p.country or '-'))} / {esc((p.city or '-'))}")
+            lines.append(f"    ISP/ORG: {esc((p.isp or '-'))} / {esc((p.org or '-'))}")
+            lines.append(f"    ASN: {esc((p.asn or '-'))} ({esc(p.asname or '-')})")
             if p.proxy is not None:
                 lines.append(f"    Proxy/VPN: {'да' if p.proxy else 'нет'}")
             if p.hosting is not None:
@@ -145,10 +145,10 @@ def format_details(result: DomainScanResult) -> str:
     if s is None:
         lines.append("  Не удалось получить данные сертификатов.")
     else:
-        lines.append(f"  first_seen: {esc(s.first_seen or '—')}")
-        lines.append(f"  last_seen: {esc(s.last_seen or '—')}")
-        lines.append(f"  Выдающие центры: {esc(', '.join(s.issuers) or '—')}")
-        lines.append(f"  SAN-домены: {esc(', '.join(s.san_domains) or '—')}")
+        lines.append(f"  first_seen: {esc(s.first_seen or '-')}")
+        lines.append(f"  last_seen: {esc(s.last_seen or '-')}")
+        lines.append(f"  Выдающие центры: {esc(', '.join(s.issuers) or '-')}")
+        lines.append(f"  SAN-домены: {esc(', '.join(s.san_domains) or '-')}")
     lines.append("")
 
     # HTTP
@@ -157,12 +157,12 @@ def format_details(result: DomainScanResult) -> str:
     if h is None:
         lines.append("  Сайт не ответил по HTTP/HTTPS.")
     else:
-        lines.append(f"  Проверенный URL: {esc(h.url_checked or '—')}")
-        lines.append(f"  Server: {esc(h.server or '—')}")
-        lines.append(f"  Via: {esc(h.via or '—')}")
-        lines.append(f"  X-Powered-By: {esc(h.x_powered_by or '—')}")
-        lines.append(f"  cf-ray: {esc(h.cf_ray or '—')}")
-        lines.append(f"  cf-cache-status: {esc(h.cf_cache_status or '—')}")
+        lines.append(f"  Проверенный URL: {esc(h.url_checked or '-')}")
+        lines.append(f"  Server: {esc(h.server or '-')}")
+        lines.append(f"  Via: {esc(h.via or '-')}")
+        lines.append(f"  X-Powered-By: {esc(h.x_powered_by or '-')}")
+        lines.append(f"  cf-ray: {esc(h.cf_ray or '-')}")
+        lines.append(f"  cf-cache-status: {esc(h.cf_cache_status or '-')}")
         lines.append(f"  robots.txt: {'есть' if h.robots_exists else 'нет'}")
         if h.robots_exists:
             lines.append(f"  Disallow: / : {'да' if h.robots_disallow_all else 'нет'}")

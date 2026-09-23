@@ -11,7 +11,7 @@ from typing import Optional
 class MonitorEntry:
     """Одна запись мониторинга (один пользователь следит за одним объектом)."""
     user_id: int
-    target: str           # домен, IP, email — то, что мониторим
+    target: str           # домен, IP, email - то, что мониторим
     scan_type: str        # "domain" | "ip" | "email"
     created_at: float = field(default_factory=time.time)
     last_checked_at: Optional[float] = None

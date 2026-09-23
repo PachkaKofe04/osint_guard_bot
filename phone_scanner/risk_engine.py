@@ -24,7 +24,7 @@ def calculate_phone_risk(info: PhoneInfo) -> Tuple[RiskLevel, List[RiskFlag], in
             flags,
             "PHONE_LENGTH_INVALID",
             RiskLevel.HIGH,
-            f"Неверная длина номера: {length} цифр (ожидалось 10–15)",
+            f"Неверная длина номера: {length} цифр (ожидалось 10-15)",
             RiskWeight.PHONE_LENGTH_INVALID,
         )
 
@@ -34,7 +34,7 @@ def calculate_phone_risk(info: PhoneInfo) -> Tuple[RiskLevel, List[RiskFlag], in
             flags,
             "PHONE_ALL_SAME_DIGITS",
             RiskLevel.HIGH,
-            "Все цифры номера одинаковые — тестовый/поддельный номер",
+            "Все цифры номера одинаковые - тестовый/поддельный номер",
             RiskWeight.PHONE_ALL_SAME_DIGITS,
         )
 
@@ -47,7 +47,7 @@ def calculate_phone_risk(info: PhoneInfo) -> Tuple[RiskLevel, List[RiskFlag], in
                 flags,
                 "PHONE_LOW_VARIETY",
                 RiskLevel.MEDIUM,
-                "Первые цифры номера сильно повторяются — подозрительный паттерн",
+                "Первые цифры номера сильно повторяются - подозрительный паттерн",
                 RiskWeight.PHONE_LOW_VARIETY,
             )
 
@@ -84,7 +84,7 @@ def calculate_phone_risk(info: PhoneInfo) -> Tuple[RiskLevel, List[RiskFlag], in
             flags,
             "PHONE_VIRTUAL_OPERATOR",
             RiskLevel.LOW,
-            f"Виртуальный оператор ({info.operator}) — возможен MNP (перенос номера)",
+            f"Виртуальный оператор ({info.operator}) - возможен MNP (перенос номера)",
             RiskWeight.PHONE_VIRTUAL_OPERATOR,
         )
 

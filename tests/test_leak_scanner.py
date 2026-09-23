@@ -10,12 +10,12 @@ class TestCalculateLeakRisk:
     """Тесты функции calculate_leak_risk."""
 
     def test_none_info(self):
-        """Если info=None — средний риск."""
+        """Если info=None - средний риск."""
         level, flags, score = calculate_leak_risk(None)
         assert any(f.code == "LEAK_CHECK_FAILED" for f in flags)
 
     def test_no_breaches(self):
-        """Нет утечек — низкий риск."""
+        """Нет утечек - низкий риск."""
         info = LeakInfo(
             query="safe@example.com",
             is_pwned=False,
@@ -40,7 +40,7 @@ class TestCalculateLeakRisk:
         assert any(f.code == "FEW_BREACHES" for f in flags)
 
     def test_many_breaches(self):
-        """Много утечек — высокий риск."""
+        """Много утечек - высокий риск."""
         breaches = [
             BreachInfo(name=f"Breach{i}", title=f"Breach {i}", domain=f"example{i}.com")
             for i in range(6)
@@ -56,7 +56,7 @@ class TestCalculateLeakRisk:
         assert score >= 5
 
     def test_password_leaked(self):
-        """Утечка паролей — высокий риск."""
+        """Утечка паролей - высокий риск."""
         info = LeakInfo(
             query="user@example.com",
             is_pwned=True,

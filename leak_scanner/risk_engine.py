@@ -42,7 +42,7 @@ def calculate_leak_risk(info: Optional[LeakInfo]) -> Tuple[RiskLevel, List[RiskF
         risk_score = calculate_risk_score(flags)
         return risk_score.level, flags, risk_score.score
 
-    # Нет утечек — отлично
+    # Нет утечек - отлично
     if not info.is_pwned:
         add_risk_flag(
             flags,
@@ -81,7 +81,7 @@ def calculate_leak_risk(info: Optional[LeakInfo]) -> Tuple[RiskLevel, List[RiskF
         if breach.is_sensitive:
             has_sensitive = True
 
-    # Утечка паролей — высокий риск
+    # Утечка паролей - высокий риск
     password_keywords = ["Passwords", "Password", "Hashed passwords"]
     if any(kw in all_data_classes for kw in password_keywords):
         add_risk_flag(

@@ -44,7 +44,7 @@ class TestTTLCache:
         assert cache.get("key2") == 2
         assert cache.get("key3") == 3
 
-        # Добавляем ещё один — должен вытеснить самый старый
+        # Добавляем ещё один - должен вытеснить самый старый
         cache.set("key4", 4)
 
         # key1 должен быть вытеснен (FIFO или LRU)

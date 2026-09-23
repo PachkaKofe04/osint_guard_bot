@@ -1,4 +1,4 @@
-# tools/ — инструменты аудита
+# tools/ - инструменты аудита
 
 Не часть бота. Используются для проверки его состояния.
 
@@ -22,4 +22,4 @@ NO_RL=1 PYTHONPATH=. PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe tools/wir
 PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe tools/api_health.py
 ```
 
-Легенда: `OK` — 200 · `AUTH` — нужен ключ · `LIMIT` — 429 · `FAIL` — иной код · `DEAD` — не отвечает.
+Легенда: `OK` - 200 · `AUTH` - нужен ключ · `LIMIT` - 429 · `FAIL` - иной код · `DEAD` - не отвечает.

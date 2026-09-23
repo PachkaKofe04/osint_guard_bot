@@ -39,7 +39,7 @@ def format_leak_result(result: LeakScanResult) -> str:
             lines.append("    2. Получи ключ (~$3.50/мес)")
             lines.append("    3. Добавь в <code>.env</code>: <code>HIBP_API_KEY=твой_ключ</code>")
             lines.append("")
-            lines.append("Пока ключ не настроен — проверяй вручную:")
+            lines.append("Пока ключ не настроен - проверяй вручную:")
             lines.append(f"🔗 <a href=\"https://haveibeenpwned.com/account/{esc(result.query)}\">haveibeenpwned.com</a>")
         elif not info.is_pwned:
             lines.append("✅ <b>Отлично!</b>")

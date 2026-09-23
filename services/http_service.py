@@ -34,7 +34,7 @@ def _get_request(url: str, timeout: float = 5.0) -> Optional[requests.Response]:
 def fetch_http_sync(domain: str) -> Optional[HttpInfo]:
     checked_url = None
 
-    # Пытаемся HTTPS, если не получилось — HTTP
+    # Пытаемся HTTPS, если не получилось - HTTP
     for scheme in ("https", "http"):
         base_url = f"{scheme}://{domain}"
         resp_head = _head_request(base_url + "/", timeout=5.0)
@@ -80,7 +80,7 @@ def fetch_http_sync(domain: str) -> Optional[HttpInfo]:
         if "sitemap:" in lowered:
             robots_has_sitemap = True
 
-        # минимальные Allow — подозрительный паттерн фишинговых сайтов
+        # минимальные Allow - подозрительный паттерн фишинговых сайтов
         if "allow: /index.html" in lowered or "allow: /index_2.html" in lowered:
             robots_has_minimal_allow = True
 

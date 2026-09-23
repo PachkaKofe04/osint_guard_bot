@@ -1,5 +1,5 @@
 # ip_scanner/abuseipdb_service.py
-"""AbuseIPDB — репутационная проверка IP (1000 req/день на бесплатном плане)."""
+"""AbuseIPDB - репутационная проверка IP (1000 req/день на бесплатном плане)."""
 import logging
 from typing import Optional
 

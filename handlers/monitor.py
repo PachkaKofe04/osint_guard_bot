@@ -7,6 +7,7 @@ from aiogram.filters import Command
 from aiogram.types import Message
 
 from monitoring.models import MonitorEntry
+from utils.safe_html import esc
 from monitoring.storage import MonitorStorage, MAX_MONITORS_PER_USER
 from utils.telegram_io import safe_answer
 
@@ -14,7 +15,7 @@ log = logging.getLogger(__name__)
 
 router = Router()
 
-# Единственный экземпляр хранилища — инициализируется снаружи
+# Единственный экземпляр хранилища - инициализируется снаружи
 _storage: MonitorStorage | None = None
 
 
@@ -82,7 +83,7 @@ async def cmd_monitor(message: Message) -> None:
     # Тип: из аргумента или автодетект
     scan_type = parts[2].strip().lower() if len(parts) > 2 else None
     if scan_type and scan_type not in SUPPORTED_TYPES:
-        await safe_answer(message, f"❌ Неизвестный тип: <code>{scan_type}</code>. Поддерживаются: domain, ip, email")
+        await safe_answer(message, f"❌ Неизвестный тип: <code>{esc(scan_type)}</code>. Поддерживаются: domain, ip, email")
         return
 
     if not scan_type:
@@ -101,7 +102,7 @@ async def cmd_monitor(message: Message) -> None:
     if not added:
         existing = _storage.get(user_id, scan_type, target)
         if existing:
-            await safe_answer(message, f"ℹ️ <code>{target}</code> уже в мониторинге.")
+            await safe_answer(message, f"ℹ️ <code>{esc(target)}</code> уже в мониторинге.")
         else:
             await safe_answer(message,
                 f"❌ Достигнут лимит мониторов ({MAX_MONITORS_PER_USER}).\n"
@@ -111,7 +112,7 @@ async def cmd_monitor(message: Message) -> None:
 
     await safe_answer(message,
         f"✅ <b>Мониторинг добавлен</b>\n\n"
-        f"<b>Объект:</b> <code>{target}</code>\n"
+        f"<b>Объект:</b> <code>{esc(target)}</code>\n"
         f"<b>Тип:</b> {scan_type}\n\n"
         f"Первая проверка пройдёт в течение 5 минут.\n"
         f"Ты получишь уведомление при изменении уровня риска."
@@ -120,7 +121,7 @@ async def cmd_monitor(message: Message) -> None:
 
 @router.message(Command("monitors"))
 async def cmd_monitors(message: Message) -> None:
-    """/monitors — список активных мониторов пользователя."""
+    """/monitors - список активных мониторов пользователя."""
     if _storage is None:
         await safe_answer(message, "⚠️ Система мониторинга не инициализирована.")
         return
@@ -142,11 +143,11 @@ async def cmd_monitors(message: Message) -> None:
         level_part = ""
         if e.last_risk_level:
             emoji = _LEVEL_EMOJI.get(e.last_risk_level, "⚪")
-            level_part = f" — {emoji} {e.last_risk_level}"
+            level_part = f" - {emoji} {e.last_risk_level}"
             if e.last_score is not None:
                 level_part += f" ({e.last_score}/10)"
 
-        lines.append(f"{i}. <code>{e.target}</code> [{e.scan_type}]{level_part}")
+        lines.append(f"{i}. <code>{esc(e.target)}</code> [{e.scan_type}]{level_part}")
 
     lines.append("\n<i>Удалить: /unmonitor example.com</i>")
     await safe_answer(message, "\n".join(lines))
@@ -154,7 +155,7 @@ async def cmd_monitors(message: Message) -> None:
 
 @router.message(Command("unmonitor"))
 async def cmd_unmonitor(message: Message) -> None:
-    """/unmonitor <target> — остановить мониторинг объекта."""
+    """/unmonitor <target> - остановить мониторинг объекта."""
     if _storage is None:
         await safe_answer(message, "⚠️ Система мониторинга не инициализирована.")
         return
@@ -175,9 +176,9 @@ async def cmd_unmonitor(message: Message) -> None:
             break
 
     if removed:
-        await safe_answer(message, f"✅ Мониторинг <code>{target}</code> остановлен.")
+        await safe_answer(message, f"✅ Мониторинг <code>{esc(target)}</code> остановлен.")
     else:
         await safe_answer(message,
-            f"❌ Монитор <code>{target}</code> не найден.\n"
+            f"❌ Монитор <code>{esc(target)}</code> не найден.\n"
             "Проверь список: /monitors"
         )

@@ -3,13 +3,13 @@
 Определение типа пользовательского ввода.
 
 Живёт в utils, а не в handlers, потому что нужен двум потребителям:
-  - handlers/auto_detect.py — чтобы выбрать сканер;
-  - middlewares/rate_limit.py — чтобы понять, породит ли сообщение
+  - handlers/auto_detect.py - чтобы выбрать сканер;
+  - middlewares/rate_limit.py - чтобы понять, породит ли сообщение
     реальный скан (и только тогда тратить квоту пользователя).
 
 Типы: url, email, ip, phone, bin, wallet, domain, username, ambiguous, unknown
 
-`ambiguous` — голое слово, которое технически подходит под username, но с тем же
+`ambiguous` - голое слово, которое технически подходит под username, но с тем же
 успехом может быть обычным словом («help», «проверь»). Такое не сканируем молча:
 хендлер переспрашивает кнопками.
 """
@@ -31,7 +31,7 @@ USERNAME_PATTERN = re.compile(r"^@?[a-zA-Z0-9_.-]{3,32}$")
 PHONE_CHARS_PATTERN = re.compile(r"^\+?[\d\s\-().]{7,25}$")
 
 # Расширения файлов, которые НЕ являются доменами верхнего уровня.
-# Сознательно не включены .sh .io .me .tv .cc .ai .co .zip .mov — это реальные TLD,
+# Сознательно не включены .sh .io .me .tv .cc .ai .co .zip .mov - это реальные TLD,
 # и «readme.io» вполне может быть настоящим сайтом.
 FILE_EXTENSIONS = {
     "txt", "md", "js", "mjs", "cjs", "py", "pyc", "json", "csv", "xml",
@@ -65,7 +65,7 @@ def _digits_only(text: str) -> str:
 
 
 def _looks_like_filename(text: str) -> bool:
-    """Отсекает `readme.md`, `script.js` — их незачем гнать в скан домена."""
+    """Отсекает `readme.md`, `script.js` - их незачем гнать в скан домена."""
     if "." not in text:
         return False
     return text.rsplit(".", 1)[-1].lower() in FILE_EXTENSIONS
@@ -91,14 +91,14 @@ def detect_input_type(text: str) -> Tuple[str, str]:
     if "@" in text and "." in text and EMAIL_PATTERN.match(text):
         return "email", text
 
-    # IP — строго до телефона, иначе 8.8.8.8 уедет в телефоны
+    # IP - строго до телефона, иначе 8.8.8.8 уедет в телефоны
     is_valid_ip, _version = validate_ip(text)
     if is_valid_ip:
         return "ip", text
 
     # Числовой ввод: телефон или BIN карты.
     # Разбирается до проверки на пробелы, чтобы «+7 999 585 20 48» дошёл сюда.
-    # Ветки телефона раньше не было вообще — /phone был недостижим без команды.
+    # Ветки телефона раньше не было вообще - /phone был недостижим без команды.
     if PHONE_CHARS_PATTERN.match(text):
         digits = _digits_only(text)
         if 10 <= len(digits) <= 15:
@@ -107,11 +107,11 @@ def detect_input_type(text: str) -> Tuple[str, str]:
             return "bin", digits
         return "unknown", text
 
-    # Короткий числовой ввод (6–8 цифр) — BIN карты
+    # Короткий числовой ввод (6-8 цифр) - BIN карты
     if text.isdigit() and 6 <= len(text) <= 8:
         return "bin", text
 
-    # Пробелы внутри — это фраза, а не идентификатор
+    # Пробелы внутри - это фраза, а не идентификатор
     if " " in text:
         return "unknown", text
 
@@ -119,11 +119,11 @@ def detect_input_type(text: str) -> Tuple[str, str]:
     if detect_currency(text):
         return "wallet", text
 
-    # Домен — но не имя файла
+    # Домен - но не имя файла
     if DOMAIN_PATTERN.match(text) and not _looks_like_filename(text):
         return "domain", text
 
-    # Username с явным @ — намерение однозначное
+    # Username с явным @ - намерение однозначное
     if text.startswith("@"):
         stripped = text.lstrip("@")
         if USERNAME_PATTERN.match(text):
@@ -134,7 +134,7 @@ def detect_input_type(text: str) -> Tuple[str, str]:
     if USERNAME_PATTERN.match(text) and "." not in text:
         if text.lower() in COMMON_WORDS:
             return "unknown", text
-        # Только буквы, без цифр/подчёркиваний — скорее слово, чем ник.
+        # Только буквы, без цифр/подчёркиваний - скорее слово, чем ник.
         # Не сканируем молча: хендлер переспросит кнопками.
         if text.isalpha():
             return "ambiguous", text

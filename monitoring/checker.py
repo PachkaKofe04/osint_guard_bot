@@ -6,6 +6,7 @@ import logging
 from typing import Optional, Tuple
 
 from monitoring.models import MonitorEntry
+from utils.safe_html import esc
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ def build_alert_message(entry: MonitorEntry, new_level: str, new_score: int) -> 
     old_level = entry.last_risk_level
     old_score = entry.last_score
 
-    # Первая проверка — отправляем результат без сравнения
+    # Первая проверка - отправляем результат без сравнения
     if old_level is None:
         return _format_first_check(entry, new_level, new_score)
 
@@ -53,7 +54,7 @@ def build_alert_message(entry: MonitorEntry, new_level: str, new_score: int) -> 
     score_changed = old_score is not None and abs(new_score - old_score) >= 2
 
     if not level_changed and not score_changed:
-        return None  # ничего не изменилось — молчим
+        return None  # ничего не изменилось - молчим
 
     return _format_change_alert(entry, old_level, old_score, new_level, new_score)
 
@@ -78,7 +79,7 @@ def _format_first_check(entry: MonitorEntry, level: str, score: int) -> str:
     return (
         f"🔔 <b>Мониторинг запущен</b>\n"
         f"<b>Тип:</b> {type_label}\n"
-        f"<b>Объект:</b> <code>{entry.target}</code>\n"
+        f"<b>Объект:</b> <code>{esc(entry.target)}</code>\n"
         f"\n"
         f"<b>Текущее состояние:</b>\n"
         f"{emoji} Уровень риска: <b>{level}</b> (оценка: {score}/10)\n"
@@ -107,7 +108,7 @@ def _format_change_alert(
 
     return (
         f"{header}\n"
-        f"<b>Тип:</b> {type_label} | <code>{entry.target}</code>\n"
+        f"<b>Тип:</b> {type_label} | <code>{esc(entry.target)}</code>\n"
         f"\n"
         f"<b>Уровень риска:</b>\n"
         f"{old_emoji} {old_level} → {new_emoji} {new_level}"

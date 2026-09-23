@@ -13,7 +13,7 @@ pillow-heif
 rawpy
 pyzbar
 opencv-python
-# Windows: pyzbar требует libzbar-64.dll; если не работает — используется opencv-python как фоллбэк
+# Windows: pyzbar требует libzbar-64.dll; если не работает - используется opencv-python как фоллбэк
 
 # Testing
 pytest>=8.0.0

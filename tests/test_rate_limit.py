@@ -36,9 +36,9 @@ class TestRateLimitMiddleware:
         middleware = RateLimitMiddleware()
         now = time.time()
 
-        # user 123 — все запросы старше TTL → будет удалён
+        # user 123 - все запросы старше TTL → будет удалён
         middleware._request_history[123] = [now - ENTRY_TTL_SECONDS - 100]
-        # user 456 — свежий запрос → останется
+        # user 456 - свежий запрос → останется
         middleware._request_history[456] = [now]
         # Форсируем cleanup (иначе он пропускается чаще раза в минуту)
         middleware._last_cleanup = now - 120
@@ -81,7 +81,7 @@ class TestRateLimitMiddleware:
         assert len(middleware._request_history) <= MAX_RATE_LIMIT_ENTRIES
 
     def test_cleanup_not_too_frequent(self):
-        """Повторный cleanup в пределах 60 секунд — no-op."""
+        """Повторный cleanup в пределах 60 секунд - no-op."""
         middleware = RateLimitMiddleware()
         now = time.time()
 

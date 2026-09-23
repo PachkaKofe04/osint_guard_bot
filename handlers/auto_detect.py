@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 
 router = Router()
 
-# Человекочитаемые названия типов для сообщения «определён …»
+# Человекочитаемые названия типов для сообщения «определён ...»
 TYPE_NAMES = {
     "url": "🔗 ссылка",
     "email": "📧 email",
@@ -76,14 +76,14 @@ def _ambiguous_keyboard(value: str) -> InlineKeyboardMarkup:
 UNKNOWN_TEXT = (
     "🤔 Не понял, что это за данные.\n\n"
     "Пришли что-то из этого:\n"
-    "• домен или ссылку — <code>example.com</code>\n"
-    "• email — <code>user@mail.ru</code>\n"
-    "• телефон — <code>+79991234567</code>\n"
-    "• IP-адрес — <code>8.8.8.8</code>\n"
-    "• никнейм — <code>@johndoe</code>\n"
-    "• BIN карты — <code>427229</code>\n"
+    "• домен или ссылку - <code>example.com</code>\n"
+    "• email - <code>user@mail.ru</code>\n"
+    "• телефон - <code>+79991234567</code>\n"
+    "• IP-адрес - <code>8.8.8.8</code>\n"
+    "• никнейм - <code>@johndoe</code>\n"
+    "• BIN карты - <code>427229</code>\n"
     "• адрес криптокошелька\n"
-    "• фото файлом — разберу EXIF или QR\n\n"
+    "• фото файлом - разберу EXIF или QR\n\n"
     "Или выбери раздел в меню 👇"
 )
 
@@ -92,7 +92,7 @@ UNKNOWN_TEXT = (
 async def auto_detect_handler(message: types.Message) -> None:
     """
     Определяет тип ввода и вызывает нужный сканер.
-    Срабатывает на любой текст без команды — это последний роутер в цепочке.
+    Срабатывает на любой текст без команды - это последний роутер в цепочке.
     """
     text = message.text or ""
     input_type, value = detect_input_type(text)
@@ -101,7 +101,7 @@ async def auto_detect_handler(message: types.Message) -> None:
 
     if input_type == "ambiguous":
         await message.answer(
-            f"🤔 <code>{esc(value)}</code> — это никнейм?\n\n"
+            f"🤔 <code>{esc(value)}</code> - это никнейм?\n\n"
             "Если да, проверю по 20 платформам.",
             reply_markup=_ambiguous_keyboard(value),
         )
@@ -112,7 +112,7 @@ async def auto_detect_handler(message: types.Message) -> None:
         return
 
     type_name = TYPE_NAMES.get(input_type, input_type)
-    waiting_msg = await message.answer(f"🔍 Определил {type_name}, анализирую…")
+    waiting_msg = await message.answer(f"🔍 Определил {type_name}, анализирую...")
 
     try:
         result_text = await _run_scan(input_type, value)
@@ -139,7 +139,7 @@ async def auto_detect_handler(message: types.Message) -> None:
 
 @router.callback_query(F.data.startswith("asname:"))
 async def callback_scan_as_username(callback: types.CallbackQuery) -> None:
-    """Пользователь подтвердил, что введённое слово — никнейм."""
+    """Пользователь подтвердил, что введённое слово - никнейм."""
     username = (callback.data or "").split(":", 1)[1]
     await callback.answer()
 
@@ -149,7 +149,7 @@ async def callback_scan_as_username(callback: types.CallbackQuery) -> None:
         log.debug("[Auto-detect] Не удалось убрать клавиатуру подтверждения")
 
     waiting_msg = await callback.message.answer(
-        f"👤 Ищу <code>{esc(username)}</code> на платформах…"
+        f"👤 Ищу <code>{esc(username)}</code> на платформах..."
     )
 
     try:
@@ -177,7 +177,7 @@ async def unknown_command(message: types.Message) -> None:
     await safe_answer(
         message,
         f"❓ Команда <code>{esc(command)}</code> мне неизвестна.\n\n"
-        "Всё, что я умею, — в меню 👇",
+        "Всё, что я умею, - в меню 👇",
         reply_markup=get_main_menu(),
     )
 
@@ -188,6 +188,6 @@ async def unsupported_content(message: types.Message) -> None:
     await safe_answer(
         message,
         "🤷 С таким типом сообщений я не работаю.\n\n"
-        "Пришли текст или изображение файлом — или выбери раздел в меню 👇",
+        "Пришли текст или изображение файлом - или выбери раздел в меню 👇",
         reply_markup=get_main_menu(),
     )

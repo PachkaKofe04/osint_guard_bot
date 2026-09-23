@@ -80,7 +80,7 @@ async def scan_url(raw_url: str) -> UrlScanResult:
         has_suspicious_tld=structure["has_suspicious_tld"],
         has_many_subdomains=structure["has_many_subdomains"],
         url_length=structure["url_length"],
-        # VirusTotal пока не интегрирован — добавим позже
+        # VirusTotal пока не интегрирован - добавим позже
         vt_malicious=0,
         vt_suspicious=0,
         vt_total=0,

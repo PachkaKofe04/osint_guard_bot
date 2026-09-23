@@ -47,7 +47,7 @@ class TestValidateIp:
         assert version == 6
 
     def test_invalid_ipv4_octet(self):
-        """Невалидный IPv4 — октет > 255."""
+        """Невалидный IPv4 - октет > 255."""
         is_valid, version = validate_ip("256.1.1.1")
         assert is_valid is False
 
@@ -115,19 +115,19 @@ class TestCalculateIpRisk:
     """Тесты функции calculate_ip_risk."""
 
     def test_none_info(self):
-        """Если info=None — средний риск."""
+        """Если info=None - средний риск."""
         level, flags, score = calculate_ip_risk(None)
         assert any(f.code == "IP_ANALYSIS_FAILED" for f in flags)
 
     def test_invalid_ip(self):
-        """Невалидный IP — высокий риск."""
+        """Невалидный IP - высокий риск."""
         info = IpInfo(ip="invalid", is_valid=False)
         level, flags, score = calculate_ip_risk(info)
         assert any(f.code == "INVALID_IP" for f in flags)
         assert score >= 5
 
     def test_private_ip(self):
-        """Приватный IP — низкий риск."""
+        """Приватный IP - низкий риск."""
         info = IpInfo(
             ip="192.168.1.1",
             is_valid=True,
@@ -137,7 +137,7 @@ class TestCalculateIpRisk:
         assert any(f.code == "PRIVATE_IP" for f in flags)
 
     def test_tor_exit_high_risk(self):
-        """TOR exit node — высокий риск."""
+        """TOR exit node - высокий риск."""
         info = IpInfo(
             ip="185.220.101.1",
             is_valid=True,
@@ -148,7 +148,7 @@ class TestCalculateIpRisk:
         assert score >= 5
 
     def test_vpn_medium_risk(self):
-        """VPN — средний риск."""
+        """VPN - средний риск."""
         info = IpInfo(
             ip="1.2.3.4",
             is_valid=True,
@@ -158,7 +158,7 @@ class TestCalculateIpRisk:
         assert any(f.code == "VPN_PROXY" for f in flags)
 
     def test_proxy_medium_risk(self):
-        """Proxy — средний риск."""
+        """Proxy - средний риск."""
         info = IpInfo(
             ip="1.2.3.4",
             is_valid=True,
@@ -168,7 +168,7 @@ class TestCalculateIpRisk:
         assert any(f.code == "VPN_PROXY" for f in flags)
 
     def test_blacklisted_high_risk(self):
-        """В чёрном списке — высокий риск."""
+        """В чёрном списке - высокий риск."""
         info = IpInfo(
             ip="1.2.3.4",
             is_valid=True,
@@ -179,7 +179,7 @@ class TestCalculateIpRisk:
         assert score >= 5
 
     def test_high_abuse_score(self):
-        """Высокий abuse score — высокий риск."""
+        """Высокий abuse score - высокий риск."""
         info = IpInfo(
             ip="1.2.3.4",
             is_valid=True,
@@ -189,7 +189,7 @@ class TestCalculateIpRisk:
         assert any(f.code == "HIGH_ABUSE_SCORE" for f in flags)
 
     def test_medium_abuse_score(self):
-        """Средний abuse score — средний риск."""
+        """Средний abuse score - средний риск."""
         info = IpInfo(
             ip="1.2.3.4",
             is_valid=True,
@@ -199,7 +199,7 @@ class TestCalculateIpRisk:
         assert any(f.code == "MEDIUM_ABUSE_SCORE" for f in flags)
 
     def test_hosting_ip(self):
-        """Хостинг IP — средний риск."""
+        """Хостинг IP - средний риск."""
         info = IpInfo(
             ip="1.2.3.4",
             is_valid=True,
@@ -255,7 +255,7 @@ class TestCalculateIpRisk:
         assert any(f.code == "GEO_RESOLVED" for f in flags)
 
     def test_clean_residential_ip(self):
-        """Чистый резиденциальный IP — низкий риск."""
+        """Чистый резиденциальный IP - низкий риск."""
         info = IpInfo(
             ip="203.0.113.50",
             is_valid=True,

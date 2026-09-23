@@ -35,7 +35,7 @@ async def cmd_scan(message: types.Message) -> None:
 
     raw_domain = parts[1].strip()
 
-    waiting_msg = await message.answer("⏳ Сканирую домен, это может занять несколько секунд…")
+    waiting_msg = await message.answer("⏳ Сканирую домен, это может занять несколько секунд...")
 
     try:
         result = await scan_domain(raw_domain)
@@ -67,7 +67,7 @@ async def cmd_scan(message: types.Message) -> None:
 async def cb_domain_details(callback: types.CallbackQuery) -> None:
     """
     Обработка нажатия на кнопку «Подробнее». В callback_data зашит домен.
-    Отчёт может быть длиннее лимита Telegram — отправляем через safe_answer,
+    Отчёт может быть длиннее лимита Telegram - отправляем через safe_answer,
     он разобьёт текст на части.
     """
     data = callback.data or ""
@@ -79,7 +79,7 @@ async def cb_domain_details(callback: types.CallbackQuery) -> None:
 
     await callback.answer()  # убираем «часики»
 
-    # Повторно сканируем домен — сработает кэш, поэтому быстро
+    # Повторно сканируем домен - сработает кэш, поэтому быстро
     try:
         result = await scan_domain(domain)
     except Exception as exc:

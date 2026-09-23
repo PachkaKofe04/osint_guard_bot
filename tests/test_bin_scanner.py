@@ -44,7 +44,7 @@ class TestCalculateBinRisk:
     """Тесты функции calculate_bin_risk."""
 
     def test_bin_not_found_high_risk(self):
-        """BIN не найден — высокий риск."""
+        """BIN не найден - высокий риск."""
         level, flags, score = calculate_bin_risk(None)
 
         assert any(f.code == "BIN_NOT_FOUND" for f in flags)
@@ -99,7 +99,7 @@ class TestCalculateBinRisk:
         assert any(f.code == "BIN_BANK_UNKNOWN" for f in flags)
 
     def test_normal_card_low_risk(self):
-        """Обычная карта известного банка — низкий риск."""
+        """Обычная карта известного банка - низкий риск."""
         info = BinInfo(
             raw_input="427600",
             bin="427600",

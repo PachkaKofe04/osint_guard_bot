@@ -125,27 +125,27 @@ class TestIsFreeProvider:
     """Тесты функции is_free_provider."""
 
     def test_gmail(self):
-        """Gmail — бесплатный провайдер."""
+        """Gmail - бесплатный провайдер."""
         assert is_free_provider("gmail.com") is True
 
     def test_yahoo(self):
-        """Yahoo — бесплатный провайдер."""
+        """Yahoo - бесплатный провайдер."""
         assert is_free_provider("yahoo.com") is True
 
     def test_outlook(self):
-        """Outlook — бесплатный провайдер."""
+        """Outlook - бесплатный провайдер."""
         assert is_free_provider("outlook.com") is True
 
     def test_mail_ru(self):
-        """Mail.ru — бесплатный провайдер."""
+        """Mail.ru - бесплатный провайдер."""
         assert is_free_provider("mail.ru") is True
 
     def test_yandex(self):
-        """Яндекс — бесплатный провайдер."""
+        """Яндекс - бесплатный провайдер."""
         assert is_free_provider("yandex.ru") is True
 
     def test_protonmail(self):
-        """ProtonMail — бесплатный провайдер."""
+        """ProtonMail - бесплатный провайдер."""
         assert is_free_provider("protonmail.com") is True
 
     def test_corporate_not_free(self):
@@ -197,12 +197,12 @@ class TestCalculateEmailRisk:
     """Тесты функции calculate_email_risk."""
 
     def test_none_info(self):
-        """Если info=None — средний риск."""
+        """Если info=None - средний риск."""
         level, flags, score = calculate_email_risk(None)
         assert any(f.code == "EMAIL_ANALYSIS_FAILED" for f in flags)
 
     def test_invalid_format_high_risk(self):
-        """Невалидный формат — высокий риск."""
+        """Невалидный формат - высокий риск."""
         info = EmailInfo(
             email="invalid",
             local_part="",
@@ -214,7 +214,7 @@ class TestCalculateEmailRisk:
         assert score >= 5
 
     def test_disposable_high_risk(self):
-        """Одноразовый email — высокий риск."""
+        """Одноразовый email - высокий риск."""
         info = EmailInfo(
             email="test@tempmail.com",
             local_part="test",
@@ -228,7 +228,7 @@ class TestCalculateEmailRisk:
         assert score >= 3
 
     def test_no_mx_records_risk(self):
-        """Нет MX записей — риск."""
+        """Нет MX записей - риск."""
         info = EmailInfo(
             email="test@nonexistent.com",
             local_part="test",
@@ -239,7 +239,7 @@ class TestCalculateEmailRisk:
         assert any(f.code == "NO_MX_RECORDS" for f in flags)
 
     def test_many_breaches_high_risk(self):
-        """Много утечек — высокий риск."""
+        """Много утечек - высокий риск."""
         info = EmailInfo(
             email="test@example.com",
             local_part="test",
@@ -252,7 +252,7 @@ class TestCalculateEmailRisk:
         assert any(f.code == "MANY_BREACHES" for f in flags)
 
     def test_few_breaches_medium_risk(self):
-        """Несколько утечек — средний риск."""
+        """Несколько утечек - средний риск."""
         info = EmailInfo(
             email="test@example.com",
             local_part="test",
@@ -266,7 +266,7 @@ class TestCalculateEmailRisk:
 
     def test_no_breaches_no_trust_flag(self):
         """
-        Нет утечек — НЕ выдаём флаг доверия.
+        Нет утечек - НЕ выдаём флаг доверия.
 
         Раньше флаг `NO_BREACHES` выставлялся при `breach_count == 0`,
         что вводило пользователя в заблуждение: HIBP не подключён,
@@ -285,7 +285,7 @@ class TestCalculateEmailRisk:
         assert not any(f.code == "NO_BREACHES" for f in flags)
 
     def test_free_provider_low_risk(self):
-        """Бесплатный провайдер — низкий риск."""
+        """Бесплатный провайдер - низкий риск."""
         info = EmailInfo(
             email="test@gmail.com",
             local_part="test",
@@ -298,7 +298,7 @@ class TestCalculateEmailRisk:
         assert any(f.code == "FREE_PROVIDER" for f in flags)
 
     def test_corporate_email_trust(self):
-        """Корпоративный email — доверие."""
+        """Корпоративный email - доверие."""
         info = EmailInfo(
             email="employee@company.com",
             local_part="employee",
@@ -310,7 +310,7 @@ class TestCalculateEmailRisk:
         assert any(f.code == "CORPORATE_EMAIL" for f in flags)
 
     def test_known_provider_trust(self):
-        """Известный провайдер — доверие."""
+        """Известный провайдер - доверие."""
         info = EmailInfo(
             email="test@gmail.com",
             local_part="test",
@@ -322,7 +322,7 @@ class TestCalculateEmailRisk:
         assert any(f.code == "KNOWN_PROVIDER" for f in flags)
 
     def test_new_domain_risk(self):
-        """Новый домен — риск."""
+        """Новый домен - риск."""
         info = EmailInfo(
             email="test@newdomain.com",
             local_part="test",
@@ -334,7 +334,7 @@ class TestCalculateEmailRisk:
         assert any(f.code == "NEW_DOMAIN" for f in flags)
 
     def test_clean_corporate_email(self):
-        """Чистый корпоративный email — низкий риск."""
+        """Чистый корпоративный email - низкий риск."""
         info = EmailInfo(
             email="john.doe@microsoft.com",
             local_part="john.doe",

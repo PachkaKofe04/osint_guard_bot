@@ -68,7 +68,7 @@ def detect_currency(address: str) -> Optional[str]:
     if XMR_REGEX.match(address):
         return "XMR"
 
-    # Solana (последний — более общий паттерн)
+    # Solana (последний - более общий паттерн)
     if SOL_REGEX.match(address) and len(address) >= 32:
         # Дополнительная проверка на Solana
         if not any([
@@ -111,7 +111,7 @@ def validate_address(address: str, currency: Optional[str] = None) -> Tuple[bool
             return validate_btc_address(address), "BTC"
         elif currency == "ETH":
             return validate_eth_address(address), "ETH"
-        # Для остальных — просто определяем валюту
+        # Для остальных - просто определяем валюту
         detected = detect_currency(address)
         if detected == currency:
             return True, currency

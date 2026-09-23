@@ -90,7 +90,7 @@ class TestCalculateRiskScore:
     """Тесты для calculate_risk_score."""
 
     def test_empty_flags(self):
-        """Нет флагов — минимальный риск."""
+        """Нет флагов - минимальный риск."""
         flags = []
         result = calculate_risk_score(flags)
 

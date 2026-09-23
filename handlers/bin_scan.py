@@ -16,7 +16,7 @@ async def cmd_bin(message: types.Message) -> None:
 
     if len(parts) < 2:
         await safe_answer(message,
-            "Укажи BIN для проверки (первые 6–8 цифр карты).\n\n"
+            "Укажи BIN для проверки (первые 6-8 цифр карты).\n\n"
             "Пример:\n"
             "<code>/bin 45717360</code>"
         )

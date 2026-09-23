@@ -115,7 +115,7 @@ class TestCalculateUsernameRisk:
     """Тесты функции calculate_username_risk."""
 
     def test_none_info(self):
-        """Если info=None — средний риск."""
+        """Если info=None - средний риск."""
         level, flags, score = calculate_username_risk(None)
         assert any(f.code == "USERNAME_ANALYSIS_FAILED" for f in flags)
 
@@ -189,7 +189,7 @@ class TestCalculateUsernameRisk:
         assert any(f.code == "ESTABLISHED_PRESENCE" for f in flags)
 
     def test_established_user_low_risk(self):
-        """Устоявшийся пользователь — низкий риск."""
+        """Устоявшийся пользователь - низкий риск."""
         platforms = [
             PlatformResult(platform=f"Platform{i}", url=f"https://example{i}.com/user", exists=True, status="exists")
             for i in range(6)
@@ -207,7 +207,7 @@ class TestCalculateUsernameRisk:
         assert score <= 3
 
     def test_suspicious_user_high_risk(self):
-        """Подозрительный пользователь — высокий риск."""
+        """Подозрительный пользователь - высокий риск."""
         info = UsernameInfo(
             username="google_admin_support",
             is_valid=True,

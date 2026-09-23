@@ -2,7 +2,7 @@
 """
 Пользовательские данные не должны попадать в разметку сырыми.
 
-Неэкранированный `<` или `&` ломал parse_mode=HTML — Telegram отвечал
+Неэкранированный `<` или `&` ломал parse_mode=HTML - Telegram отвечал
 "can't parse entities", и пользователь не получал ответа вообще.
 Особенно опасны поля, которые целиком контролируются извне: содержимое
 QR-кода, EXIF-теги подготовленного файла, заголовки чужого сервера.
@@ -139,3 +139,31 @@ class TestEmailFormatter:
             scanned_at=datetime.now(timezone.utc),
         )
         _assert_escaped(format_email_result(result))
+
+
+class TestMonitoringAlerts:
+    """
+    Уведомления мониторинга собирают HTML в обход форматтеров и уходят
+    через bot.send_message напрямую - отката на plain text там нет,
+    поэтому сломанная разметка означает недоставленный алерт.
+    """
+
+    @staticmethod
+    def _entry(**kw):
+        from monitoring.models import MonitorEntry
+        params = dict(user_id=1, target=PAYLOAD, scan_type="domain")
+        params.update(kw)
+        return MonitorEntry(**params)
+
+    def test_first_check_alert_escaped(self):
+        from monitoring.checker import build_alert_message
+
+        alert = build_alert_message(self._entry(), "LOW", 1)
+        _assert_escaped(alert)
+
+    def test_change_alert_escaped(self):
+        from monitoring.checker import build_alert_message
+
+        entry = self._entry(last_risk_level="LOW", last_score=1)
+        alert = build_alert_message(entry, "HIGH", 8)
+        _assert_escaped(alert)

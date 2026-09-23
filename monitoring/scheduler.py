@@ -36,7 +36,7 @@ async def monitor_loop(bot: "Bot", storage: "MonitorStorage") -> None:
         for entry in due:
             result = await run_scan(entry)
             if result is None:
-                # Не удалось проверить — обновляем last_checked чтобы не спамить
+                # Не удалось проверить - обновляем last_checked чтобы не спамить
                 import time
                 entry.last_checked_at = time.time()
                 storage.save()

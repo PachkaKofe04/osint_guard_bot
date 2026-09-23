@@ -18,13 +18,13 @@ log = logging.getLogger(__name__)
 # Кэш для результатов сканирования
 _wallet_cache: TTLCache[WalletScanResult] = TTLCache(ttl_seconds=300, max_size=512)
 
-# Blockchair — универсальный API для 20+ блокчейнов (1500 req/день бесплатно)
+# Blockchair - универсальный API для 20+ блокчейнов (1500 req/день бесплатно)
 BLOCKCHAIR_API = "https://api.blockchair.com/{chain}/dashboards/address/{address}"
 
-# CryptoScamDB — база скам-адресов (бесплатно, без ключа)
+# CryptoScamDB - база скам-адресов (бесплатно, без ключа)
 CRYPTOSCAMDB_API = "https://api.cryptoscamdb.org/v1/check/{address}"
 
-# CoinGecko — курсы криптовалют к USD (бесплатно, без ключа)
+# CoinGecko - курсы криптовалют к USD (бесплатно, без ключа)
 COINGECKO_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price"
 COINGECKO_IDS = {
     "BTC":  "bitcoin",
@@ -122,7 +122,7 @@ async def fetch_blockchair_info(address: str, currency: str) -> Optional[dict]:
     try:
         addr_data = data.get("data", {}).get(address, {}).get("address", {})
         if not addr_data:
-            # Blockchair иногда возвращает ключ в другом регистре (ETH — lowercase)
+            # Blockchair иногда возвращает ключ в другом регистре (ETH - lowercase)
             addr_key = address.lower()
             addr_data = data.get("data", {}).get(addr_key, {}).get("address", {})
 
