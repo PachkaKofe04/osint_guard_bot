@@ -51,6 +51,14 @@ class IpInfo(BaseModel):
     is_blacklisted: bool = False
     abuse_score: Optional[int] = None  # 0-100
     threat_types: List[str] = []
+    # Почему данных о репутации нет: ключа нет, ключ отвергнут, кончилась
+    # квота или сервис не ответил. Раньше все четыре случая выглядели
+    # одинаково, и пользователь не мог понять, надо ли что-то чинить
+    reputation_note: Optional[str] = None
+    # Откуда взята геолокация: ipwho.is (HTTPS) или ip-api (HTTP)
+    geo_source: Optional[str] = None
+    # Про прокси ничего не известно: ip-api не ответил
+    proxy_unknown: bool = False
 
     # Проверка по локальным базам угроз: C2-серверы, вредоносные хосты
     threats: Optional[ThreatVerdict] = None

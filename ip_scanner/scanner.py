@@ -187,10 +187,19 @@ async def scan_ip(raw_ip: str) -> IpScanResult:
             is_proxy=api_data.get("proxy", False),
             is_hosting=api_data.get("hosting", False),
             # AbuseIPDB репутация
-            abuse_score=abuse_data.abuse_score if abuse_data else None,
-            is_tor=abuse_data.is_tor if abuse_data else False,
-            is_blacklisted=(abuse_data.abuse_score or 0) >= 75 if abuse_data else False,
-            threat_types=[abuse_data.usage_type] if (abuse_data and abuse_data.usage_type) else [],
+            abuse_score=abuse_data.abuse_score if abuse_data.ok else None,
+            is_blacklisted=(abuse_data.abuse_score or 0) >= 75 if abuse_data.ok else False,
+            threat_types=[abuse_data.usage_type] if (abuse_data.ok and abuse_data.usage_type) else [],
+            reputation_note=abuse_data.explanation,
+            geo_source=api_data.get("source"),
+            proxy_unknown=bool(api_data.get("proxy_unknown")),
+        )
+
+        # Tor определяем по списку выходных узлов: бесплатно и без ключа.
+        # Ответ AbuseIPDB используем только как дополнение.
+        tor_known = feeds.is_tor_exit(ip)
+        info.is_tor = tor_known if tor_known is not None else (
+            abuse_data.is_tor if abuse_data.ok else False
         )
 
     # Проверка по локальным базам: C2-серверы ботнетов, вредоносные хосты

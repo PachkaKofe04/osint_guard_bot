@@ -120,6 +120,12 @@ FEEDS: tuple = (
         parser="_parse_scam_domains",
     ),
     FeedSpec(
+        name="Tor",
+        url="https://check.torproject.org/torbulkexitlist",
+        filename="tor_exit_nodes.txt",
+        parser="_parse_tor",
+    ),
+    FeedSpec(
         name="Feodo Tracker",
         url="https://feodotracker.abuse.ch/downloads/ipblocklist.json",
         filename="feodo_c2.json",
@@ -181,6 +187,8 @@ class ThreatFeeds:
         self._phishing_domains: Set[str] = set()
         # C2-серверы ботнетов
         self._c2_ips: Dict[str, ThreatInfo] = {}
+        # Выходные узлы Tor. Определяются без ключа, в отличие от AbuseIPDB
+        self._tor_exits: Set[str] = set()
         # Сколько вредоносных URL размещено на хосте. Не обвинение хоста:
         # на крупных площадках такие ссылки есть всегда
         self._urlhaus_host_counts: Dict[str, int] = {}
@@ -201,6 +209,7 @@ class ThreatFeeds:
             "phishing_domains": len(self._phishing_domains),
             "c2_ips": len(self._c2_ips),
             "hosts_with_bad_urls": len(self._urlhaus_host_counts),
+            "tor_exits": len(self._tor_exits),
             "feeds": {
                 name: {
                     "fresh": self._is_fresh(name),
@@ -235,6 +244,17 @@ class ThreatFeeds:
             hits.extend(host_result.hits)
 
         return LookupResult(Verdict.HIT if hits else Verdict.CLEAN, hits)
+
+    def is_tor_exit(self, ip: str) -> Optional[bool]:
+        """
+        Выходной ли это узел Tor.
+
+        None означает «список не загружен»: вызывающий код не должен
+        выдавать это за «не Tor».
+        """
+        if not self.feed_ready("Tor"):
+            return None
+        return (ip or "").strip() in self._tor_exits
 
     def malicious_urls_on_host(self, host: str) -> int:
         """
@@ -495,6 +515,14 @@ class ThreatFeeds:
             _normalize_host(str(d)) for d in data if d
         }
         self._phishing_domains.discard("")
+
+    def _parse_tor(self, payload: bytes) -> None:
+        """Текстовый список: по одному IP в строке."""
+        self._tor_exits = {
+            line.strip()
+            for line in payload.decode("utf-8", "ignore").splitlines()
+            if line.strip() and not line.startswith("#")
+        }
 
     def _parse_feodo(self, payload: bytes) -> None:
         """JSON-массив C2-серверов ботнетов."""

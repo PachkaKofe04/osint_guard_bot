@@ -204,6 +204,21 @@ def _extra_actions(direction: Direction, result, value: str) -> list:
             )
         ])
 
+    if direction.key == "email":
+        info = getattr(result, "info", None)
+        # Поиск по платформам занимает до 45 секунд, поэтому предлагается
+        # отдельным шагом, а не молчаливой паузой в основной проверке
+        already_deep = getattr(info, "deep_check_done", False) if info else False
+        if info is not None and getattr(info, "is_valid_format", False) and not already_deep:
+            payload = f"emaildeep:{value}"
+            if len(payload.encode("utf-8")) <= 64:
+                rows.append([
+                    InlineKeyboardButton(
+                        text="🔬 Где засветился этот адрес",
+                        callback_data=payload,
+                    )
+                ])
+
     if direction.key == "username":
         info = getattr(result, "info", None)
         if info is not None and getattr(info, "is_valid", False):

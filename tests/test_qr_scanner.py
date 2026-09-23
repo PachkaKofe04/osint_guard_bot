@@ -220,3 +220,107 @@ class TestCalculateQrRisk:
         level, flags, score = calculate_qr_risk(info)
         assert any(f.code == "TEXT_CONTENT" for f in flags)
         assert level == RiskLevel.LOW
+
+
+qrcode = pytest.importorskip("qrcode", reason="qrcode нужен для генерации тестовых кодов")
+
+
+class TestRealQrDecoding:
+    """
+    Распознавание настоящих QR-кодов, а не только разбор строк.
+
+    Проверяется запасной путь через OpenCV: библиотека zbar на этой машине
+    не грузится, ей нужен MSVCR120.dll из Visual C++ 2013 Redistributable.
+    Прежняя реализация вызывала detectAndDecode и потому видела ровно один
+    код на снимке, не пыталась увеличить мелкое изображение и не вытягивала
+    контраст у засвеченных.
+    """
+
+    @staticmethod
+    def _png(text, box=10, rotate=0, brightness=1.0):
+        import io
+
+        from PIL import ImageEnhance
+
+        q = qrcode.QRCode(box_size=box, border=4)
+        q.add_data(text)
+        q.make(fit=True)
+        img = q.make_image(fill_color="black", back_color="white").convert("RGB")
+
+        if rotate:
+            img = img.rotate(rotate, expand=True, fillcolor="white")
+        if brightness != 1.0:
+            img = ImageEnhance.Brightness(img).enhance(brightness)
+
+        buffer = io.BytesIO()
+        img.save(buffer, "PNG")
+        return buffer.getvalue()
+
+    async def test_plain_qr(self):
+        from qr_scanner.scanner import scan_qr
+
+        result = await scan_qr(self._png("https://example.com/login"), "q.png")
+        assert result.found_qr
+        assert result.info.raw_data == "https://example.com/login"
+
+    async def test_small_qr_is_upscaled(self):
+        """Мелкий код с общего плана: без увеличения не читается."""
+        from qr_scanner.scanner import scan_qr
+
+        result = await scan_qr(self._png("WIFI:T:WPA;S:Net;P:pass;;", box=3), "q.png")
+        assert result.found_qr
+        assert result.info.wifi is not None
+        assert result.info.wifi.ssid == "Net"
+
+    async def test_rotated_qr(self):
+        from qr_scanner.scanner import scan_qr
+
+        result = await scan_qr(self._png("tel:+79991234567", rotate=17), "q.png")
+        assert result.found_qr
+        assert "79991234567" in result.info.raw_data
+
+    async def test_overexposed_qr(self):
+        """Засветка: помогает приведение к контрастному чёрно-белому."""
+        from qr_scanner.scanner import scan_qr
+
+        result = await scan_qr(self._png("простой текст", brightness=1.7), "q.png")
+        assert result.found_qr
+
+    async def test_multiple_codes_on_one_image(self):
+        """
+        Раньше находился только первый код, а decoded_count всегда равнялся 1.
+        """
+        import io
+
+        from PIL import Image
+
+        from qr_scanner.scanner import scan_qr
+
+        first = Image.open(io.BytesIO(self._png("https://first.example")))
+        second = Image.open(io.BytesIO(self._png("https://second.example")))
+        canvas = Image.new(
+            "RGB", (first.width + second.width + 40, max(first.height, second.height)),
+            "white",
+        )
+        canvas.paste(first, (0, 0))
+        canvas.paste(second, (first.width + 40, 0))
+
+        buffer = io.BytesIO()
+        canvas.save(buffer, "PNG")
+
+        result = await scan_qr(buffer.getvalue(), "two.png")
+        assert result.found_qr
+        assert result.info.decoded_count == 2
+
+    async def test_image_without_qr(self):
+        import io
+
+        from PIL import Image
+
+        from qr_scanner.scanner import scan_qr
+
+        buffer = io.BytesIO()
+        Image.new("RGB", (400, 400), "white").save(buffer, "PNG")
+
+        result = await scan_qr(buffer.getvalue(), "blank.png")
+        assert result.found_qr is False

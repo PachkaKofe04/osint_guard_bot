@@ -273,3 +273,77 @@ class TestCalculateIpRisk:
         level, flags, score = calculate_ip_risk(info)
         assert level == RiskLevel.LOW
         assert score <= 3
+
+
+class TestAbuseIpdbStatuses:
+    """
+    Неуспехи AbuseIPDB должны различаться.
+
+    Раньше отсутствие ключа, отвергнутый ключ и исчерпанная квота сводились
+    к одному None: пользователь видел просто отсутствие данных о репутации
+    и не мог понять, надо ли что-то настраивать.
+    """
+
+    async def test_missing_key_is_reported(self):
+        from ip_scanner.abuseipdb_service import AbuseStatus, check_abuseipdb
+
+        result = await check_abuseipdb("8.8.8.8", "")
+        assert result.status is AbuseStatus.NO_KEY
+        assert result.ok is False
+        assert "не настроен" in result.explanation
+
+    async def test_each_status_has_its_own_explanation(self):
+        from ip_scanner.abuseipdb_service import AbuseIpdbResult, AbuseStatus
+
+        messages = {
+            AbuseIpdbResult(status=s).explanation
+            for s in (AbuseStatus.NO_KEY, AbuseStatus.REJECTED,
+                      AbuseStatus.RATE_LIMITED, AbuseStatus.ERROR)
+        }
+        assert len(messages) == 4, "тексты не должны совпадать"
+        assert None not in messages
+
+    def test_ok_status_has_no_explanation(self):
+        from ip_scanner.abuseipdb_service import AbuseIpdbResult, AbuseStatus
+
+        result = AbuseIpdbResult(status=AbuseStatus.OK, abuse_score=0)
+        assert result.ok is True
+        assert result.explanation is None
+
+
+class TestTorDetectionWithoutKey:
+    """Tor определяется по списку выходных узлов, без ключа AbuseIPDB."""
+
+    def test_unloaded_list_returns_none_not_false(self, tmp_path):
+        """
+        Незагруженный список означает «не знаю», а не «не Tor».
+
+        False здесь был бы утверждением, которого мы не проверяли.
+        """
+        from services.threat_feeds import ThreatFeeds
+
+        assert ThreatFeeds(cache_dir=str(tmp_path)).is_tor_exit("8.8.8.8") is None
+
+    def test_known_exit_node_detected(self, tmp_path):
+        import time
+
+        from services.threat_feeds import ThreatFeeds
+
+        store = ThreatFeeds(cache_dir=str(tmp_path))
+        store._parse_tor(b"171.25.193.25\n198.51.100.7\n")
+        store._loaded_at["Tor"] = time.time()
+
+        assert store.is_tor_exit("171.25.193.25") is True
+        assert store.is_tor_exit("8.8.8.8") is False
+
+    def test_comments_are_skipped(self, tmp_path):
+        import time
+
+        from services.threat_feeds import ThreatFeeds
+
+        store = ThreatFeeds(cache_dir=str(tmp_path))
+        store._parse_tor(b"# ExitNodes list\n203.0.113.1\n")
+        store._loaded_at["Tor"] = time.time()
+
+        assert store.is_tor_exit("# ExitNodes list") is False
+        assert store.is_tor_exit("203.0.113.1") is True

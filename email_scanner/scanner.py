@@ -77,7 +77,7 @@ async def fetch_domain_age(domain: str) -> Optional[int]:
     return None
 
 
-async def scan_email(raw_email: str) -> EmailScanResult:
+async def scan_email(raw_email: str, deep: bool = False) -> EmailScanResult:
     """
     Полное сканирование Email.
 
@@ -89,8 +89,10 @@ async def scan_email(raw_email: str) -> EmailScanResult:
     """
     email = raw_email.strip().lower()
 
-    # Проверяем кэш
-    cached = _email_cache.get(email)
+    # Быстрый и глубокий результаты кэшируются раздельно: иначе быстрый
+    # ответ подменял бы собой уже выполненный поиск по платформам
+    cache_key = f"{email}:deep" if deep else email
+    cached = _email_cache.get(cache_key)
     if cached is not None:
         return cached
 
@@ -115,19 +117,26 @@ async def scan_email(raw_email: str) -> EmailScanResult:
             score=score,
             scanned_at=datetime.now(timezone.utc),
         )
-        _email_cache.set(email, result)
+        _email_cache.set(cache_key, result)
         return result
 
     # Парсим email
     local_part, domain = parse_email(email)
 
-    # Параллельно получаем MX записи, Gravatar, Holehe и возраст домена
-    mx_records, gravatar_url, holehe_hits, domain_age_days = await asyncio.gather(
+    # Быстрая часть: укладывается в несколько секунд.
+    # Поиск по платформам через holehe занимает до 45 секунд и висел бы
+    # молчаливой паузой, поэтому вынесен в отдельный шаг по кнопке.
+    tasks = [
         fetch_mx_records(domain),
         check_gravatar_exists(email),
-        check_holehe(email),
         fetch_domain_age(domain),
-    )
+    ]
+    if deep:
+        tasks.append(check_holehe(email))
+
+    results = await asyncio.gather(*tasks)
+    mx_records, gravatar_url, domain_age_days = results[0], results[1], results[2]
+    holehe_hits = results[3] if deep else []
     has_mx = len(mx_records) > 0
 
     # Проверяем тип домена
@@ -155,6 +164,7 @@ async def scan_email(raw_email: str) -> EmailScanResult:
         domain_age_days=domain_age_days,
         gravatar_url=gravatar_url,
         holehe_hits=holehe_hits,
+        deep_check_done=deep,
     )
 
     # Рассчитываем риск
@@ -171,7 +181,7 @@ async def scan_email(raw_email: str) -> EmailScanResult:
     )
 
     # Сохраняем в кэш
-    _email_cache.set(email, result)
+    _email_cache.set(cache_key, result)
 
     log.info(f"[Email Scanner] Result for {email}: score={score}, mx={has_mx}, disposable={is_disposable}")
 

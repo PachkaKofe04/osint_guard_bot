@@ -39,6 +39,10 @@ class EmailInfo(BaseModel):
 
     # Holehe - платформы, где зарегистрирован email
     holehe_hits: List[str] = []
+    # Запускался ли поиск по платформам. Он занимает до 45 секунд, поэтому
+    # идёт отдельным шагом по кнопке, а не в основной проверке.
+    # Пустой список без этого признака выглядел бы как «нигде не найден».
+    deep_check_done: bool = False
 
 
 class EmailScanResult(BaseModel):

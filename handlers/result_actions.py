@@ -16,6 +16,8 @@ from aiogram.types import BufferedInputFile
 
 from domain_scanner.formatter import format_details
 from domain_scanner.scanner import scan_domain
+from email_scanner.formatter import format_email_result
+from email_scanner.scanner import scan_email
 from keyboards.menu_kb import get_back_menu
 from services.maigret_service import maigret_search
 from username_scanner.formatter import format_maigret_result
@@ -122,3 +124,45 @@ async def cb_maigret(callback: types.CallbackQuery) -> None:
             ),
             caption=f"Полный список: {len(hits)} профилей",
         )
+
+
+@router.callback_query(F.data.startswith("emaildeep:"))
+async def cb_email_deep(callback: types.CallbackQuery) -> None:
+    """
+    Углублённая проверка email: поиск по платформам через holehe.
+
+    Вынесена из основной проверки, потому что занимает до 45 секунд.
+    Раньше столько длился любой запрос /email, и всё это время бот молчал.
+    """
+    email = (callback.data or "").split(":", 1)[1]
+
+    await callback.answer("Запускаю поиск по платформам")
+
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        log.debug("[result_actions] Клавиатура уже снята")
+
+    waiting_msg = await safe_answer(
+        callback.message,
+        f"🔬 Ищу <code>{esc(email)}</code> по сервисам.\n"
+        f"Это займёт до 45 секунд.",
+    )
+
+    try:
+        result = await scan_email(email, deep=True)
+    except Exception as exc:
+        log.error("[result_actions] Глубокая проверка %s не удалась: %s", email, exc)
+        await safe_edit(
+            waiting_msg,
+            "⚠️ Поиск по платформам не удался. Попробуй позже.",
+            reply_markup=get_back_menu(),
+        )
+        return
+
+    await safe_edit(
+        waiting_msg,
+        format_email_result(result),
+        reply_markup=get_back_menu(),
+        disable_web_page_preview=True,
+    )

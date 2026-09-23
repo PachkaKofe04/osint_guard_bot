@@ -48,7 +48,12 @@ def format_email_result(result: EmailScanResult) -> str:
                 breaches_str = ", ".join(info.breaches[:5])
                 lines.append(f"  └ {breaches_str}")
         else:
-            lines.append(f"<b>Утечки:</b> ℹ️ Не проверено (HIBP API не подключён)")
+            # Утечки проверяет отдельное направление «Утечки» в меню.
+            # Прежний текст ссылался на неподключённый ключ HIBP, который
+            # с переходом на XposedOrNot больше не нужен
+            lines.append(
+                "<b>Утечки:</b> ℹ️ проверяются отдельно - раздел «Утечки» в меню"
+            )
 
         # Gravatar
         if info.gravatar_url:
@@ -61,8 +66,14 @@ def format_email_result(result: EmailScanResult) -> str:
                 lines.append(f"  • {esc(domain)}")
             if len(info.holehe_hits) > 15:
                 lines.append(f"  ... и ещё {len(info.holehe_hits) - 15}")
+        elif info.deep_check_done:
+            lines.append("<b>Платформы:</b> адрес нигде не найден (проверено 250+ сервисов)")
         elif info.is_valid_format and info.has_mx_records:
-            lines.append(f"<b>Платформы:</b> Не найден (проверено 250+ сервисов через Holehe)")
+            # Пустой список без этой оговорки читался бы как «нигде не найден»,
+            # хотя поиск ещё не запускался
+            lines.append(
+                "<b>Платформы:</b> поиск не запускался, он идёт отдельной кнопкой"
+            )
 
         lines.append("")
 

@@ -99,6 +99,19 @@ def format_ip_result(result: IpScanResult) -> str:
                 if info.threat_types:
                     lines.append(f"    📌 Тип: {info.threat_types[0]}")
                 lines.append("")
+            elif info.reputation_note:
+                # Почему данных нет. Раньше отсутствие ключа, отвергнутый ключ
+                # и исчерпанная квота выглядели одинаково - как их отсутствие
+                lines.append("⚡ <b>Репутация:</b> проверка не выполнена")
+                lines.append(f"    {esc(info.reputation_note)}")
+                lines.append("")
+
+            if info.proxy_unknown:
+                lines.append(
+                    "<i>Признаки прокси и VPN проверить не удалось: "
+                    "источник этих данных не ответил.</i>"
+                )
+                lines.append("")
 
     # OTX репутация
     if result.otx is not None:

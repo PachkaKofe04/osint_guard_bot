@@ -73,6 +73,75 @@ PHISHING_PATTERNS = [
 ]
 
 
+class _DecodedQr:
+    """Результат распознавания в формате, совместимом с pyzbar."""
+
+    __slots__ = ("data",)
+
+    def __init__(self, text: str) -> None:
+        self.data = text.encode("utf-8")
+
+
+def _decode_with_opencv(image) -> list:
+    """
+    Распознавание через OpenCV - запасной путь, когда недоступен pyzbar.
+
+    Делает три вещи, которых не делала прежняя реализация:
+      - detectAndDecodeMulti вместо detectAndDecode: находит несколько кодов
+        на снимке, а не только первый. Раньше decoded_count всегда был 1;
+      - повторная попытка на увеличенном изображении: мелкие коды с далёкого
+        снимка иначе не читаются;
+      - повторная попытка на контрастной чёрно-белой версии: помогает при
+        засветке и плохом освещении.
+
+    zbar справляется лучше и с первого раза, но требует MSVCR120.dll
+    из состава Visual C++ 2013 Redistributable.
+    """
+    import cv2
+    import numpy as np
+
+    source = np.array(image.convert("RGB"))
+    base = cv2.cvtColor(source, cv2.COLOR_RGB2BGR)
+    gray = cv2.cvtColor(base, cv2.COLOR_BGR2GRAY)
+
+    attempts = [base, gray]
+
+    # Мелкий код с общего плана: увеличиваем вдвое
+    height, width = gray.shape[:2]
+    if max(height, width) < 1200:
+        attempts.append(cv2.resize(gray, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC))
+
+    # Засветка или тень: приводим к контрастному чёрно-белому
+    attempts.append(
+        cv2.adaptiveThreshold(
+            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 5
+        )
+    )
+
+    detector = cv2.QRCodeDetector()
+
+    for candidate in attempts:
+        try:
+            ok, texts, _points, _codes = detector.detectAndDecodeMulti(candidate)
+            if ok:
+                found = [t for t in texts if t]
+                if found:
+                    # Дубликаты возможны, если один код распознан дважды
+                    unique = list(dict.fromkeys(found))
+                    return [_DecodedQr(text) for text in unique]
+        except cv2.error:
+            pass
+
+        try:
+            text, _bbox, _straight = detector.detectAndDecode(candidate)
+            if text:
+                return [_DecodedQr(text)]
+        except cv2.error:
+            pass
+
+    return []
+
+
 def _detect_content_type(data: str) -> QrContentType:
     """Определяет тип содержимого QR кода."""
     data_lower = data.lower()
@@ -266,18 +335,7 @@ def _scan_qr_sync(image_data: bytes, filename: str = "image") -> QrScanResult:
         if PYZBAR_AVAILABLE:
             decoded_objects = pyzbar_decode(image)
         elif CV2_AVAILABLE:
-            import cv2
-            import numpy as np
-            img_array = np.array(image.convert("RGB"))
-            img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
-            detector = cv2.QRCodeDetector()
-            data, bbox, _ = detector.detectAndDecode(img_bgr)
-            if data:
-                # Оборачиваем в объект совместимый с pyzbar
-                class _FakeQR:
-                    def __init__(self, d):
-                        self.data = d.encode("utf-8")
-                decoded_objects = [_FakeQR(data)]
+            decoded_objects = _decode_with_opencv(image)
     except Exception as e:
         log.warning(f"[QR] Decode error: {e}")
         decoded_objects = []

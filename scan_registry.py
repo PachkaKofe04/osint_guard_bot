@@ -141,10 +141,12 @@ DIRECTIONS: Dict[str, Direction] = {
             title="Email",
             category="personal",
             prompt=(
-                "Пришли email - проверю формат, MX-записи, одноразовость, "
-                "возраст домена и где этот адрес засветился."
+                "Пришли email - проверю формат, MX-записи, одноразовость "
+                "и возраст домена.\n\n"
+                "Поиск по сервисам, где засветился адрес, запускается "
+                "отдельной кнопкой: он идёт дольше."
             ),
-            waiting="📧 Проверяю email, это займёт до 45 секунд...",
+            waiting="📧 Проверяю email...",
             scan=scan_email,
             format=format_email_result,
             examples=("user@example.com",),

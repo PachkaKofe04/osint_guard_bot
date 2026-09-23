@@ -13,12 +13,16 @@ pillow-heif
 rawpy
 pyzbar
 opencv-python
-# Windows: pyzbar требует libzbar-64.dll; если не работает - используется opencv-python как фоллбэк
+# pyzbar быстрее и точнее OpenCV, но libzbar-64.dll требует MSVCR120.dll
+# из Visual C++ 2013 Redistributable (x64). Без него автоматически
+# используется opencv-python: он читает и мелкие, и повёрнутые коды,
+# просто с большим числом попыток.
 
 # Testing
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
 pytest-cov>=4.0.0
+qrcode  # генерация QR для тестов распознавания
 
 
 holehe==1.61
