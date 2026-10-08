@@ -10,7 +10,7 @@ from typing import Optional
 from ip_scanner.models import IpInfo, IpScanResult, OtxInfo
 from ip_scanner.risk_engine import calculate_ip_risk
 from ip_scanner.ip_service import fetch_ip_profile_async
-from ip_scanner.abuseipdb_service import check_abuseipdb
+from ip_scanner.abuseipdb_service import AbuseIpdbResult, AbuseStatus, check_abuseipdb
 from services.otx_service import check_ip_reputation
 from config import settings
 from services.threat_feeds import feeds, to_verdict
@@ -146,14 +146,41 @@ async def scan_ip(raw_ip: str) -> IpScanResult:
         _ip_cache.set(ip, result)
         return result
 
-    # Получаем данные от ip-api.com, OTX и AbuseIPDB параллельно
+    # Отказ одного провайдера не должен отбрасывать ответы остальных.
     api_data, otx_data, abuse_data = await asyncio.gather(
         fetch_ip_profile_async(ip),
         asyncio.to_thread(check_ip_reputation, ip),
         check_abuseipdb(ip, settings.ABUSEIPDB_API_KEY or ""),
+        return_exceptions=True,
     )
 
-    # Строим OtxInfo если данные получены
+    for provider_data in (api_data, otx_data, abuse_data):
+        if isinstance(provider_data, asyncio.CancelledError):
+            raise provider_data
+
+    geo_note = None
+    if isinstance(api_data, Exception):
+        log.warning("[IP Scanner] Geo failed for %s: %s", ip, api_data)
+        geo_note = f"источник геолокации завершился с ошибкой ({type(api_data).__name__})"
+        api_data = None
+    elif api_data is None:
+        geo_note = "источник геолокации не ответил"
+
+    otx_note = None
+    if isinstance(otx_data, Exception):
+        log.warning("[IP Scanner] OTX failed for %s: %s", ip, otx_data)
+        otx_note = f"AlienVault OTX завершился с ошибкой ({type(otx_data).__name__})"
+        otx_data = None
+    elif otx_data is None:
+        otx_note = "AlienVault OTX не настроен или не ответил"
+
+    abuse_note = None
+    if isinstance(abuse_data, Exception):
+        log.warning("[IP Scanner] AbuseIPDB failed for %s: %s", ip, abuse_data)
+        abuse_note = f"AbuseIPDB завершился с ошибкой ({type(abuse_data).__name__})"
+        abuse_data = AbuseIpdbResult(status=AbuseStatus.ERROR)
+
+    # Каждый источник заполняет свою часть результата независимо от геопрофиля.
     otx: Optional[OtxInfo] = None
     if otx_data is not None:
         otx = OtxInfo(
@@ -161,49 +188,53 @@ async def scan_ip(raw_ip: str) -> IpScanResult:
             malware_samples=otx_data.get("malware_samples", 0),
         )
 
-    if api_data is None:
-        info = IpInfo(
-            ip=ip,
-            version=version,
-            is_valid=True,
-        )
-    else:
-        info = IpInfo(
-            ip=ip,
-            version=version,
-            is_valid=True,
-            is_private=False,
-            is_reserved=False,
-            # Геолокация
-            country=api_data.get("country"),
-            country_code=api_data.get("countryCode"),
-            city=api_data.get("city"),
-            # Сетевая информация
-            isp=api_data.get("isp"),
-            org=api_data.get("org"),
-            asn=api_data.get("as"),
-            asname=api_data.get("asname"),
-            # Тип подключения
-            is_proxy=api_data.get("proxy", False),
-            is_hosting=api_data.get("hosting", False),
-            # AbuseIPDB репутация
-            abuse_score=abuse_data.abuse_score if abuse_data.ok else None,
-            is_blacklisted=(abuse_data.abuse_score or 0) >= 75 if abuse_data.ok else False,
-            threat_types=[abuse_data.usage_type] if (abuse_data.ok and abuse_data.usage_type) else [],
-            reputation_note=abuse_data.explanation,
-            geo_source=api_data.get("source"),
-            proxy_unknown=bool(api_data.get("proxy_unknown")),
-        )
+    profile = api_data or {}
+    proxy_unknown = (
+        api_data is None or bool(profile.get("proxy_unknown"))
+        or not isinstance(profile.get("proxy"), bool)
+    )
+    connection_unknown = proxy_unknown or not all(
+        isinstance(profile.get(field), bool) for field in ("proxy", "hosting")
+    )
+    info = IpInfo(
+        ip=ip,
+        version=version,
+        is_valid=True,
+        country=profile.get("country"),
+        country_code=profile.get("countryCode"),
+        city=profile.get("city"),
+        isp=profile.get("isp"),
+        org=profile.get("org"),
+        asn=profile.get("as"),
+        asname=profile.get("asname"),
+        is_proxy=profile.get("proxy", False),
+        is_hosting=profile.get("hosting", False),
+        abuse_score=abuse_data.abuse_score if abuse_data.ok else None,
+        is_blacklisted=(abuse_data.abuse_score or 0) >= 75 if abuse_data.ok else False,
+        threat_types=[abuse_data.usage_type] if (abuse_data.ok and abuse_data.usage_type) else [],
+        reputation_note=abuse_note or abuse_data.explanation,
+        geo_source=profile.get("source"),
+        geo_note=geo_note,
+        proxy_unknown=proxy_unknown,
+        connection_unknown=connection_unknown,
+    )
 
-        # Tor определяем по списку выходных узлов: бесплатно и без ключа.
-        # Ответ AbuseIPDB используем только как дополнение.
+    # Положительное доказательство Tor от любого источника сохраняется.
+    try:
         tor_known = feeds.is_tor_exit(ip)
-        info.is_tor = tor_known if tor_known is not None else (
-            abuse_data.is_tor if abuse_data.ok else False
-        )
+    except Exception as exc:
+        log.warning("[IP Scanner] Tor list failed for %s: %s", ip, exc)
+        tor_known = None
+        info.tor_note = f"список Tor недоступен ({type(exc).__name__})"
+    info.is_tor = tor_known is True or (abuse_data.ok and abuse_data.is_tor)
+    info.tor_unknown = tor_known is None and not abuse_data.ok
 
     # Проверка по локальным базам: C2-серверы ботнетов, вредоносные хосты
-    info.threats = to_verdict(feeds.lookup_host(ip))
+    try:
+        info.threats = to_verdict(feeds.lookup_host(ip))
+    except Exception as exc:
+        log.warning("[IP Scanner] Threat lookup failed for %s: %s", ip, exc)
+        info.threat_note = f"локальные базы угроз недоступны ({type(exc).__name__})"
 
     # Рассчитываем риск
     risk_level, flags, score = calculate_ip_risk(info, otx)
@@ -212,6 +243,7 @@ async def scan_ip(raw_ip: str) -> IpScanResult:
         ip=ip,
         info=info,
         otx=otx,
+        otx_note=otx_note,
         risk_level=risk_level,
         flags=flags,
         score=score,

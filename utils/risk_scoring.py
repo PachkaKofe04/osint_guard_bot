@@ -14,6 +14,10 @@ from utils.risk_types import (
 )
 
 
+# Только фактические находки в базах, а не произвольные HIGH признаки.
+CONFIRMED_THREAT_CODES = frozenset({"KNOWN_THREAT", "KNOWN_SCAM_ADDRESS"})
+
+
 def calculate_risk_score(flags: List[RiskFlag], confidence: int = 100) -> RiskScore:
     """
     Подсчитать итоговый risk score на основе флагов.
@@ -28,8 +32,10 @@ def calculate_risk_score(flags: List[RiskFlag], confidence: int = 100) -> RiskSc
     # Суммируем веса всех флагов
     raw_score = sum(flag.weight for flag in flags)
 
-    # Нормализуем в диапазон 0-10
-    score = max(0, min(10, raw_score))
+    # Подтвержденную угрозу не отменяют возраст, провайдер или история объекта.
+    # Все исходные флаги сохраняются; для эвристик действует обычная сумма весов.
+    confirmed = any(flag.code in CONFIRMED_THREAT_CODES for flag in flags)
+    score = 10 if confirmed else max(0, min(10, raw_score))
 
     # Определяем уровень и метаданные
     level = get_risk_level(score)

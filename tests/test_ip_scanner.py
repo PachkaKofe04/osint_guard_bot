@@ -3,8 +3,8 @@
 import pytest
 from ip_scanner.scanner import validate_ip, is_private_ip, is_reserved_ip
 from ip_scanner.risk_engine import calculate_ip_risk
-from ip_scanner.models import IpInfo
-from utils.risk_types import RiskLevel
+from ip_scanner.models import IpInfo, OtxInfo
+from utils.risk_types import RiskLevel, ThreatVerdict
 
 
 class TestValidateIp:
@@ -239,8 +239,12 @@ class TestCalculateIpRisk:
             is_tor=False,
             is_blacklisted=False,
             abuse_score=10,
+            proxy_unknown=False,
+            connection_unknown=False,
+            tor_unknown=False,
+            threats=ThreatVerdict(checked=True, found=False),
         )
-        level, flags, score = calculate_ip_risk(info)
+        level, flags, score = calculate_ip_risk(info, OtxInfo())
         assert any(f.code == "CLEAN_IP" for f in flags)
 
     def test_geo_resolved(self):
@@ -269,10 +273,26 @@ class TestCalculateIpRisk:
             country_code="US",
             city="New York",
             isp="Comcast",
+            abuse_score=0,
+            proxy_unknown=False,
+            connection_unknown=False,
+            tor_unknown=False,
+            threats=ThreatVerdict(checked=True, found=False),
         )
-        level, flags, score = calculate_ip_risk(info)
+        level, flags, score = calculate_ip_risk(info, OtxInfo())
         assert level == RiskLevel.LOW
         assert score <= 3
+        assert any(f.code == "CLEAN_IP" for f in flags)
+
+    def test_unobserved_defaults_never_grant_clean_ip(self):
+        """Пустая модель не является подтвержденным отрицательным ответом."""
+        info = IpInfo(ip="8.8.8.8")
+
+        level, flags, score = calculate_ip_risk(info)
+
+        assert not any(f.code == "CLEAN_IP" for f in flags)
+        assert any(f.code == "IP_CHECKS_INCOMPLETE" for f in flags)
+        assert all(f.weight >= 0 for f in flags)
 
 
 class TestAbuseIpdbStatuses:

@@ -192,15 +192,33 @@ def calculate_ip_risk(info: Optional[IpInfo], otx: Optional[OtxInfo] = None) -> 
                 )
                 break
 
-    # Чистый IP (нет VPN, не proxy, не TOR, низкий abuse)
-    if (not info.is_vpn and not info.is_proxy and not info.is_tor and
-        not info.is_blacklisted and (info.abuse_score is None or info.abuse_score < 25)):
+    # Доверие допустимо только после выполненных проверок без находок.
+    # Значения False по умолчанию не являются отрицательными ответами источников.
+    checks_complete = (
+        not info.is_private and not info.is_reserved
+        and not info.proxy_unknown and not info.connection_unknown and not info.tor_unknown
+        and info.abuse_score is not None
+        and otx is not None
+        and info.threats is not None and info.threats.checked
+    )
+    if (checks_complete and not info.is_vpn and not info.is_proxy and not info.is_tor
+        and not info.is_blacklisted and info.abuse_score < 25
+        and not info.threats.found and otx.pulse_count == 0 and otx.malware_samples == 0):
         add_risk_flag(
             flags,
             "CLEAN_IP",
             RiskLevel.LOW,
-            "Чистый IP без признаков proxy/VPN",
+            "По выполненным проверкам признаков угроз не найдено",
             IpRiskWeight.CLEAN_IP,
+        )
+
+    if not checks_complete and not info.is_private and not info.is_reserved:
+        add_risk_flag(
+            flags,
+            "IP_CHECKS_INCOMPLETE",
+            RiskLevel.LOW,
+            "Проверка неполная: отсутствие данных не подтверждает безопасность IP",
+            0,
         )
 
     # Геолокация успешна
@@ -223,7 +241,8 @@ def calculate_ip_risk(info: Optional[IpInfo], otx: Optional[OtxInfo] = None) -> 
                 f"OTX: найдено {otx.malware_samples} malware-образцов, связанных с IP",
                 4,
             )
-        elif otx.pulse_count > 5:
+        # Образцы малвари и threat-пульсы являются независимыми свидетельствами.
+        if otx.pulse_count > 5:
             add_risk_flag(
                 flags,
                 "OTX_HIGH_PULSES",

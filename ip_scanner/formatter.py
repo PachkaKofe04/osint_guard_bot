@@ -53,6 +53,8 @@ def format_ip_result(result: IpScanResult) -> str:
                 lines.append(f"    {esc(' '.join(location_parts))}")
             else:
                 lines.append("    Не определено")
+            if info.geo_note:
+                lines.append(f"    {esc(info.geo_note)}")
             lines.append("")
 
             # Сетевая информация
@@ -84,8 +86,11 @@ def format_ip_result(result: IpScanResult) -> str:
                 lines.append("🔌 <b>Тип подключения:</b>")
                 lines.append(f"    {', '.join(connection_types)}")
                 lines.append("")
-            elif not info.is_private:
+            elif not info.connection_unknown and not info.proxy_unknown and not info.tor_unknown:
                 lines.append("🔌 <b>Тип:</b> Резиденциальный IP")
+                lines.append("")
+            else:
+                lines.append("🔌 <b>Тип подключения:</b> не определен")
                 lines.append("")
 
             # Репутация
@@ -97,7 +102,7 @@ def format_ip_result(result: IpScanResult) -> str:
                 if info.is_blacklisted:
                     lines.append("    🚫 IP в чёрном списке (abuse ≥75%)")
                 if info.threat_types:
-                    lines.append(f"    📌 Тип: {info.threat_types[0]}")
+                    lines.append(f"    📌 Тип: {esc(info.threat_types[0])}")
                 lines.append("")
             elif info.reputation_note:
                 # Почему данных нет. Раньше отсутствие ключа, отвергнутый ключ
@@ -113,6 +118,16 @@ def format_ip_result(result: IpScanResult) -> str:
                 )
                 lines.append("")
 
+            if info.tor_unknown:
+                lines.append("<i>Принадлежность к Tor проверить не удалось.</i>")
+                lines.append("")
+            if info.tor_note:
+                lines.append(f"<i>{esc(info.tor_note)}</i>")
+                lines.append("")
+            if info.threat_note:
+                lines.append(f"<i>{esc(info.threat_note)}</i>")
+                lines.append("")
+
     # OTX репутация
     if result.otx is not None:
         otx = result.otx
@@ -123,6 +138,10 @@ def format_ip_result(result: IpScanResult) -> str:
             if otx.malware_samples > 0:
                 lines.append(f"    🔴 Malware-образцов: {otx.malware_samples}")
             lines.append("")
+    elif result.otx_note:
+        lines.append("🛡 <b>AlienVault OTX:</b> проверка не выполнена")
+        lines.append(f"    {esc(result.otx_note)}")
+        lines.append("")
 
     # Флаги рисков
     if result.flags:

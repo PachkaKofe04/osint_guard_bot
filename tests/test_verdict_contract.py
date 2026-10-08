@@ -7,16 +7,20 @@ import pytest
 from domain_scanner.formatter import format_summary
 from domain_scanner.models import DnsInfo, DomainScanResult, IpProfile, SslInfo, WhoisInfo
 from domain_scanner.risk_engine import calculate_risk
+from ip_scanner.formatter import format_ip_result
+from ip_scanner.models import IpInfo, IpScanResult, OtxInfo
+from ip_scanner.risk_engine import calculate_ip_risk
 from utils.risk_scoring import calculate_risk_score
 from utils.risk_types import RiskFlag, RiskLevel, ThreatVerdict
 from utils.threat_flags import add_threat_flags
 from wallet_scanner.models import WalletInfo
 from wallet_scanner.risk_engine import calculate_wallet_risk
+from url_scanner.models import UrlInfo
+from url_scanner.risk_engine import calculate_url_risk
 
 
 @pytest.mark.parametrize("code", ["KNOWN_THREAT", "KNOWN_SCAM_ADDRESS"])
 @pytest.mark.parametrize("trust_weight", [-1, -9, -30])
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="SC-01/TW-04: trust overrides a confirmed threat")
 def test_confirmed_threat_has_priority_over_trust(code, trust_weight):
     flags = [
         RiskFlag(code=code, level=RiskLevel.HIGH, message="Подтвержденная угроза", weight=10),
@@ -69,7 +73,6 @@ def test_unknown_check_does_not_reduce_an_observed_risk():
     assert not any(flag.code == "NOT_IN_THREAT_DB" for flag in flags)
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="SC-01: old trusted domain hides a phishing hit")
 def test_old_trusted_domain_with_phishing_hit_is_high_risk():
     threat = ThreatVerdict(checked=True, found=True, sources=["Источник"], threat_type="phishing")
     level, flags, score = calculate_risk(
@@ -89,7 +92,6 @@ def test_old_trusted_domain_with_phishing_hit_is_high_risk():
     assert "Явных признаков недобросовестности не обнаружено" not in report
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="TW-04: exchange trust lowers a confirmed scam score")
 def test_confirmed_wallet_scam_is_maximum_even_with_exchange_trust():
     info = WalletInfo(
         address="0x1111111111111111111111111111111111111111",
@@ -110,3 +112,68 @@ def test_confirmed_wallet_scam_with_activity_is_maximum():
     ))
     assert score == 10
     assert level is RiskLevel.HIGH
+
+
+@pytest.mark.parametrize("code", ["KNOWN_THREAT", "KNOWN_SCAM_ADDRESS"])
+@pytest.mark.parametrize("reverse", [False, True], ids=["threat-first", "threat-last"])
+def test_confirmed_threat_preserves_all_evidence_with_multiple_trust_flags(code, reverse):
+    flags = [
+        RiskFlag(code=code, level=RiskLevel.HIGH, message="Источник подтвердил угрозу", weight=10),
+        RiskFlag(code="OLD_OBJECT", level=RiskLevel.LOW, message="Возраст", weight=-4),
+        RiskFlag(code="TRUSTED_PROVIDER", level=RiskLevel.LOW, message="Провайдер", weight=-3),
+        RiskFlag(code="ESTABLISHED_HISTORY", level=RiskLevel.LOW, message="История", weight=-30),
+    ]
+    if reverse:
+        flags.reverse()
+    before = [flag.model_dump() for flag in flags]
+
+    result = calculate_risk_score(flags, confidence=42)
+
+    assert result.score == 10
+    assert result.level is RiskLevel.HIGH
+    assert result.emoji == "🔴"
+    assert result.confidence == 42
+    assert [flag.model_dump() for flag in result.flags] == before
+    assert [flag.model_dump() for flag in flags] == before
+
+
+def test_ip_feed_hit_stays_maximum_with_trusted_provider_and_clean_other_sources():
+    threat = ThreatVerdict(
+        checked=True, found=True, sources=["Example feed"], threat_type="botnet_c2",
+    )
+    info = IpInfo(
+        ip="8.8.4.4", asname="Google", country="United States", city="New York",
+        abuse_score=0, proxy_unknown=False, connection_unknown=False, tor_unknown=False,
+        threats=threat,
+    )
+    otx = OtxInfo(pulse_count=0, malware_samples=0)
+
+    level, flags, score = calculate_ip_risk(info, otx)
+
+    assert score == 10
+    assert level is RiskLevel.HIGH
+    assert "TRUSTED_PROVIDER" in {flag.code for flag in flags}
+    assert "KNOWN_THREAT" in {flag.code for flag in flags}
+    assert "CLEAN_IP" not in {flag.code for flag in flags}
+    card = format_ip_result(IpScanResult(
+        ip=info.ip, info=info, otx=otx, risk_level=level, flags=flags,
+        score=score, scanned_at=datetime.now(timezone.utc),
+    ))
+    assert "10/10" in card
+    assert "Example feed" in card
+    assert "управляющий сервер ботнета" in card
+
+
+def test_url_feed_hit_stays_maximum_with_clean_virustotal():
+    info = UrlInfo(
+        original_url="https://example.test/a", final_url="https://example.test/a",
+        vt_total=70,
+        threats=ThreatVerdict(checked=True, found=True, sources=["Example feed"]),
+    )
+
+    level, flags, score = calculate_url_risk(info)
+
+    assert score == 10
+    assert level is RiskLevel.HIGH
+    assert any(flag.code == "VT_CLEAN" and flag.weight < 0 for flag in flags)
+    assert "KNOWN_THREAT" in {flag.code for flag in flags}

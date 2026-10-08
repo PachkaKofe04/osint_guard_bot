@@ -57,8 +57,15 @@ class IpInfo(BaseModel):
     reputation_note: Optional[str] = None
     # Откуда взята геолокация: ipwho.is (HTTPS) или ip-api (HTTP)
     geo_source: Optional[str] = None
+    geo_note: Optional[str] = None
     # Про прокси ничего не известно: ip-api не ответил
-    proxy_unknown: bool = False
+    proxy_unknown: bool = True
+    # Резиденциальный тип допустим только при подтвержденных proxy/hosting.
+    connection_unknown: bool = True
+    # Отсутствие ответа списка Tor и AbuseIPDB не означает отсутствие Tor.
+    tor_unknown: bool = True
+    tor_note: Optional[str] = None
+    threat_note: Optional[str] = None
 
     # Проверка по локальным базам угроз: C2-серверы, вредоносные хосты
     threats: Optional[ThreatVerdict] = None
@@ -69,6 +76,7 @@ class IpScanResult(BaseModel):
     ip: str
     info: Optional[IpInfo] = None
     otx: Optional[OtxInfo] = None
+    otx_note: Optional[str] = None
     risk_level: RiskLevel
     flags: List[RiskFlag] = []
     score: int
